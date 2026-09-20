@@ -1,7 +1,8 @@
 --//============================================================
---// BUBBLESHOOK V2 - FIXED
+--// BUBBLESHOOK V2 - PREMIUM UI
 --// Full UI / Key / Loading / Bubble Reveal / Console
 --// Appearance / Players / Spectate / Fixed Top Navigation
+--// Premium Glow / Shine / Hover / Animated UI Effects
 --//============================================================
 
 local Players = game:GetService("Players")
@@ -12,23 +13,23 @@ local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 if not player then
-	return
+return
 end
 
 local playerGui = player:WaitForChild("PlayerGui")
 
 --============================================================
--- CLEANUP OLD VERSION
+-- CLEANUP
 --============================================================
 
 local oldGui = playerGui:FindFirstChild("BubblesHook")
 if oldGui then
-	oldGui:Destroy()
+oldGui:Destroy()
 end
 
 local oldSFX = SoundService:FindFirstChild("BubblesHookSFX")
 if oldSFX then
-	oldSFX:Destroy()
+oldSFX:Destroy()
 end
 
 --============================================================
@@ -55,46 +56,49 @@ local GREY = Color3.fromRGB(103, 106, 115)
 
 local ACCENT = Color3.fromRGB(225, 229, 238)
 
+local GLOW = Color3.fromRGB(190, 205, 235)
+local GLOW_SOFT = Color3.fromRGB(95, 110, 140)
+
 --============================================================
 -- STATE
 --============================================================
 
 local State = {
-	Unlocked = false,
-	Unloaded = false,
+Unlocked = false,
+Unloaded = false,
 
-	BaseColor = PANEL,
-	AccentColor = ACCENT,
+BaseColor = PANEL,
+AccentColor = ACCENT,
 
-	Animations = true,
-	Bubbles = true,
-	SFX = true,
+Animations = true,
+Bubbles = true,
+SFX = true,
 
-	CurrentTab = "Hub",
-	SelectedPlayer = nil,
+CurrentTab = "Hub",
+SelectedPlayer = nil,
 
-	ConsoleHistory = {},
-	ConsoleIndex = 0,
+ConsoleHistory = {},
+ConsoleIndex = 0,
 
-	Spectating = false,
+Spectating = false,
 }
 
 local Connections = {}
 
 local function connect(signal, callback)
-	local c = signal:Connect(callback)
-	table.insert(Connections, c)
-	return c
+local c = signal:Connect(callback)
+table.insert(Connections, c)
+return c
 end
 
 local function disconnectAll()
-	for _, c in ipairs(Connections) do
-		if c and c.Connected then
-			c:Disconnect()
-		end
-	end
+for _, c in ipairs(Connections) do
+if c and c.Connected then
+c:Disconnect()
+end
+end
 
-	table.clear(Connections)
+table.clear(Connections)
 end
 
 --============================================================
@@ -114,79 +118,250 @@ gui.Parent = playerGui
 --============================================================
 
 local function corner(object, radius)
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius or 5)
-	c.Parent = object
-	return c
+local c = Instance.new("UICorner")
+c.CornerRadius = UDim.new(0, radius or 5)
+c.Parent = object
+return c
 end
 
 local function stroke(object, color, thickness, transparency)
-	local s = Instance.new("UIStroke")
-	s.Color = color or BORDER
-	s.Thickness = thickness or 1
-	s.Transparency = transparency or 0
-	s.Parent = object
-	return s
+local s = Instance.new("UIStroke")
+s.Color = color or BORDER
+s.Thickness = thickness or 1
+s.Transparency = transparency or 0
+s.Parent = object
+return s
 end
 
 local function tween(object, info, properties)
-	if not object or not object.Parent then
-		return nil
-	end
+if not object or not object.Parent then
+return nil
+end
 
-	local t = TweenService:Create(object, info, properties)
-	t:Play()
-	return t
+local t = TweenService:Create(object, info, properties)
+t:Play()
+return t
 end
 
 local function quickTween(object, duration, properties)
-	if not object or not object.Parent then
-		return
-	end
+if not object or not object.Parent then
+return
+end
 
-	if not State.Animations then
-		for property, value in pairs(properties) do
-			object[property] = value
-		end
-		return
-	end
+if not State.Animations then
+for property, value in pairs(properties) do
+object[property] = value
+end
+return
+end
 
-	return tween(
-		object,
-		TweenInfo.new(
-			duration or 0.15,
-			Enum.EasingStyle.Quad,
-			Enum.EasingDirection.Out
-		),
-		properties
-	)
+return tween(
+object,
+TweenInfo.new(
+duration or 0.15,
+Enum.EasingStyle.Quad,
+Enum.EasingDirection.Out
+),
+properties
+)
 end
 
 local function makeLabel(parent, text, size, color, font)
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.Text = text
-	l.TextColor3 = color or WHITE
-	l.TextSize = size or 14
-	l.Font = font or Enum.Font.Gotham
-	l.Parent = parent
-	return l
+local l = Instance.new("TextLabel")
+l.BackgroundTransparency = 1
+l.Text = text
+l.TextColor3 = color or WHITE
+l.TextSize = size or 14
+l.Font = font or Enum.Font.Gotham
+l.Parent = parent
+return l
 end
 
 local function gradient(object)
-	local g = Instance.new("UIGradient")
+local g = Instance.new("UIGradient")
 
-	g.Rotation = 35
+g.Rotation = 35
 
-	g.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, WHITE),
-		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(110, 118, 135)),
-		ColorSequenceKeypoint.new(1, WHITE)
+g.Color = ColorSequence.new({
+ColorSequenceKeypoint.new(0, WHITE),
+ColorSequenceKeypoint.new(0.5, Color3.fromRGB(110, 118, 135)),
+ColorSequenceKeypoint.new(1, WHITE)
+})
+
+g.Parent = object
+return g
+end
+
+--============================================================
+-- PREMIUM EFFECT HELPERS
+--============================================================
+
+local function addGlow(object, color, size, transparency)
+if not object or not object:IsA("GuiObject") then
+return
+end
+
+local old = object:FindFirstChild("BubbleGlow")
+if old then
+old:Destroy()
+end
+
+local glow = Instance.new("ImageLabel")
+glow.Name = "BubbleGlow"
+glow.BackgroundTransparency = 1
+glow.AnchorPoint = Vector2.new(0.5, 0.5)
+glow.Position = UDim2.fromScale(0.5, 0.5)
+glow.Size = UDim2.new(
+1,
+size or 35,
+1,
+size or 35
+)
+
+glow.Image = "rbxassetid://5028857084"
+glow.ImageColor3 = color or GLOW
+glow.ImageTransparency = transparency or 0.8
+glow.ScaleType = Enum.ScaleType.Slice
+glow.SliceCenter = Rect.new(24, 24, 276, 276)
+glow.ZIndex = math.max(object.ZIndex - 1, 0)
+glow.Parent = object
+
+return glow
+end
+
+local function addShine(object)
+	if not object or not object:IsA("GuiObject") then
+		return
+	end
+
+	local old = object:FindFirstChild("BubbleShine")
+	if old then
+		old:Destroy()
+	end
+
+	-- Contained gradient shine: stays inside the GuiObject.
+	local shine = Instance.new("UIGradient")
+	shine.Name = "BubbleShine"
+	shine.Rotation = 0
+	shine.Offset = Vector2.new(-0.35, 0)
+
+	shine.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 11, 14)),
+		ColorSequenceKeypoint.new(0.38, Color3.fromRGB(10, 11, 14)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(55, 58, 68)),
+		ColorSequenceKeypoint.new(0.62, Color3.fromRGB(10, 11, 14)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 11, 14))
 	})
 
-	g.Parent = object
-	return g
+	shine.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.18),
+		NumberSequenceKeypoint.new(0.38, 0.18),
+		NumberSequenceKeypoint.new(0.5, 0),
+		NumberSequenceKeypoint.new(0.62, 0.18),
+		NumberSequenceKeypoint.new(1, 0.18)
+	})
+
+	shine.Parent = object
+	return shine
 end
+
+local function animateShine(object)
+	if not State.Animations or not object then
+		return
+	end
+
+	local shine = object:FindFirstChild("BubbleShine")
+	if not shine or not shine:IsA("UIGradient") then
+		return
+	end
+
+	shine.Offset = Vector2.new(-0.35, 0)
+
+	tween(
+		shine,
+		TweenInfo.new(
+			0.75,
+			Enum.EasingStyle.Quad,
+			Enum.EasingDirection.Out
+		),
+		{
+			Offset = Vector2.new(0.35, 0)
+		}
+	)
+end
+
+local function addButtonEffect(button, normalColor, hoverColor)
+if not button then
+return
+end
+
+addShine(button)
+
+connect(button.MouseEnter, function()
+quickTween(button, 0.16, {
+BackgroundColor3 = hoverColor or HOVER
+})
+
+animateShine(button)
+playSound(hoverSound)
+end)
+
+connect(button.MouseLeave, function()
+quickTween(button, 0.16, {
+BackgroundColor3 = normalColor or DARK
+})
+end)
+end
+
+local function pulse(object, amount, duration)
+if not State.Animations or not object then
+return
+end
+
+local original = object.Size
+local d = duration or 0.25
+local a = amount or 4
+
+tween(
+object,
+TweenInfo.new(
+d,
+Enum.EasingStyle.Quad,
+Enum.EasingDirection.Out
+),
+{
+Size = UDim2.new(
+original.X.Scale,
+original.X.Offset + a,
+original.Y.Scale,
+original.Y.Offset + a
+)
+}
+)
+
+task.delay(d, function()
+if object and object.Parent then
+tween(
+object,
+TweenInfo.new(
+d,
+Enum.EasingStyle.Quad,
+Enum.EasingDirection.Out
+),
+{
+Size = original
+}
+)
+end
+end)
+end
+
+--============================================================
+-- GRADIENT EFFECT NOTES
+-- The old off-screen Frame shine has been replaced by UIGradient.
+-- UIGradient is contained by each GuiObject, so it cannot extend
+-- outside the button/card/window while the shine animates.
+--============================================================
 
 --============================================================
 -- SOUND
@@ -197,95 +372,95 @@ sfxFolder.Name = "BubblesHookSFX"
 sfxFolder.Parent = SoundService
 
 local SOUND_IDS = {
-	Bubble = "rbxassetid://137426393727807",
-	Hover = "rbxassetid://139719503904449",
-	Click = "rbxassetid://9083627113"
+Bubble = "rbxassetid://137426393727807",
+Hover = "rbxassetid://139719503904449",
+Click = "rbxassetid://9083627113"
 }
 
 local function makeSound(name, id, volume)
-	local s = Instance.new("Sound")
-	s.Name = name
-	s.SoundId = id
-	s.Volume = volume
-	s.Parent = sfxFolder
-	return s
+local s = Instance.new("Sound")
+s.Name = name
+s.SoundId = id
+s.Volume = volume
+s.Parent = sfxFolder
+return s
 end
 
 local hoverSound = makeSound("Hover", SOUND_IDS.Hover, 0.08)
 local clickSound = makeSound("Click", SOUND_IDS.Click, 0.12)
 local bubbleTemplate = makeSound("Bubble", SOUND_IDS.Bubble, 0.05)
 
-local function playSound(sound)
-	if State.SFX and sound then
-		sound:Stop()
-		sound:Play()
-	end
+function playSound(sound)
+if State.SFX and sound then
+sound:Stop()
+sound:Play()
+end
 end
 
 local function playBubbleSound()
-	if not State.SFX then
-		return
-	end
+if not State.SFX then
+return
+end
 
-	local sound = bubbleTemplate:Clone()
+local sound = bubbleTemplate:Clone()
 
-	sound.Name = "BubblePop"
-	sound.Volume = math.random(3, 7) / 100
-	sound.PlaybackSpeed = math.random(88, 115) / 100
-	sound.Parent = sfxFolder
+sound.Name = "BubblePop"
+sound.Volume = math.random(3, 7) / 100
+sound.PlaybackSpeed = math.random(88, 115) / 100
+sound.Parent = sfxFolder
 
-	sound:Play()
+sound:Play()
 
-	task.delay(3, function()
-		if sound and sound.Parent then
-			sound:Destroy()
-		end
-	end)
+task.delay(3, function()
+if sound and sound.Parent then
+sound:Destroy()
+end
+end)
 end
 
 --============================================================
--- BUBBLE CREATION
+-- BUBBLES
 --============================================================
 
 local function createBubble(parent, x, y, w, h)
-	local bubble = Instance.new("Frame")
+local bubble = Instance.new("Frame")
 
-	bubble.BackgroundColor3 = WHITE
-	bubble.Position = UDim2.fromScale(x, y)
-	bubble.Size = UDim2.fromScale(w, h)
-	bubble.BorderSizePixel = 0
-	bubble.Parent = parent
+bubble.BackgroundColor3 = WHITE
+bubble.Position = UDim2.fromScale(x, y)
+bubble.Size = UDim2.fromScale(w, h)
+bubble.BorderSizePixel = 0
+bubble.Parent = parent
 
-	corner(bubble, 999)
-	stroke(bubble, WHITE, 1, 0.15)
-	gradient(bubble)
+corner(bubble, 999)
+stroke(bubble, WHITE, 1, 0.15)
+gradient(bubble)
 
-	local highlight = Instance.new("Frame")
-	highlight.BackgroundColor3 = WHITE
-	highlight.BackgroundTransparency = 0.05
-	highlight.Position = UDim2.fromScale(0.18, 0.13)
-	highlight.Size = UDim2.fromScale(0.30, 0.19)
-	highlight.BorderSizePixel = 0
-	highlight.Parent = bubble
+local highlight = Instance.new("Frame")
+highlight.BackgroundColor3 = WHITE
+highlight.BackgroundTransparency = 0.05
+highlight.Position = UDim2.fromScale(0.18, 0.13)
+highlight.Size = UDim2.fromScale(0.30, 0.19)
+highlight.BorderSizePixel = 0
+highlight.Parent = bubble
 
-	corner(highlight, 999)
+corner(highlight, 999)
 
-	return bubble
+return bubble
 end
 
 local function createLogo(parent, position, size)
-	local logo = Instance.new("Frame")
+local logo = Instance.new("Frame")
 
-	logo.BackgroundTransparency = 1
-	logo.Position = position
-	logo.Size = size
-	logo.Parent = parent
+logo.BackgroundTransparency = 1
+logo.Position = position
+logo.Size = size
+logo.Parent = parent
 
-	createBubble(logo, 0.12, 0.18, 0.57, 0.57)
-	createBubble(logo, 0.53, 0.03, 0.28, 0.28)
-	createBubble(logo, 0.62, 0.59, 0.22, 0.22)
+createBubble(logo, 0.12, 0.18, 0.57, 0.57)
+createBubble(logo, 0.53, 0.03, 0.28, 0.28)
+createBubble(logo, 0.62, 0.59, 0.22, 0.22)
 
-	return logo
+return logo
 end
 
 --============================================================
@@ -303,30 +478,38 @@ keyOverlay.Parent = gui
 local keyGradient = Instance.new("UIGradient")
 keyGradient.Rotation = 90
 keyGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(3, 4, 6)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(11, 12, 16)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 4, 6))
+ColorSequenceKeypoint.new(0, Color3.fromRGB(3, 4, 6)),
+ColorSequenceKeypoint.new(0.5, Color3.fromRGB(11, 12, 16)),
+ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 4, 6))
 })
 keyGradient.Parent = keyOverlay
 
--- Background bubbles
+-- Background particles
+local keyParticles = {}
+
 for i = 1, 70 do
-	local b = Instance.new("Frame")
+local b = Instance.new("Frame")
 
-	b.BackgroundColor3 = WHITE
-	b.BackgroundTransparency = math.random(95, 99) / 100
-	b.BorderSizePixel = 0
+b.BackgroundColor3 = WHITE
+b.BackgroundTransparency = math.random(95, 99) / 100
+b.BorderSizePixel = 0
 
-	local s = math.random(4, 17)
-	b.Size = UDim2.fromOffset(s, s)
+local s = math.random(4, 17)
+b.Size = UDim2.fromOffset(s, s)
 
-	b.Position = UDim2.fromScale(
-		math.random(),
-		math.random()
-	)
+b.Position = UDim2.fromScale(
+math.random(),
+math.random()
+)
 
-	b.Parent = keyOverlay
-	corner(b, 999)
+b.Parent = keyOverlay
+corner(b, 999)
+
+table.insert(keyParticles, {
+Object = b,
+Speed = math.random(5, 16) / 1000,
+Phase = math.random() * 6
+})
 end
 
 local keyCard = Instance.new("Frame")
@@ -341,19 +524,32 @@ keyCard.Parent = keyOverlay
 corner(keyCard, 8)
 stroke(keyCard, BORDER, 1, 0)
 
+local keyGlow = addGlow(
+keyCard,
+Color3.fromRGB(100, 115, 145),
+55,
+0.88
+)
+
+if keyGlow then
+keyGlow.ZIndex = 99
+end
+
+addShine(keyCard)
+
 local keyLogo = createLogo(
-	keyCard,
-	UDim2.new(0.5, -32, 0, 14),
-	UDim2.fromOffset(64, 64)
+keyCard,
+UDim2.new(0.5, -32, 0, 14),
+UDim2.fromOffset(64, 64)
 )
 keyLogo.ZIndex = 102
 
 local keyTitle = makeLabel(
-	keyCard,
-	"ACCESS",
-	22,
-	WHITE,
-	Enum.Font.GothamBold
+keyCard,
+"ACCESS",
+22,
+WHITE,
+Enum.Font.GothamBold
 )
 
 keyTitle.Size = UDim2.new(1, 0, 0, 30)
@@ -361,10 +557,10 @@ keyTitle.Position = UDim2.fromOffset(0, 76)
 keyTitle.ZIndex = 102
 
 local keySub = makeLabel(
-	keyCard,
-	"Enter the access key to continue",
-	11,
-	LIGHTGREY
+keyCard,
+"Enter the access key to continue",
+11,
+LIGHTGREY
 )
 
 keySub.Size = UDim2.new(1, 0, 0, 20)
@@ -403,13 +599,14 @@ unlockButton.ZIndex = 102
 unlockButton.Parent = keyCard
 
 corner(unlockButton, 5)
+addShine(unlockButton)
 
 local statusLabel = makeLabel(
-	keyCard,
-	"WAITING FOR KEY",
-	9,
-	GREY,
-	Enum.Font.GothamMedium
+keyCard,
+"WAITING FOR KEY",
+9,
+GREY,
+Enum.Font.GothamMedium
 )
 
 statusLabel.Size = UDim2.new(1, 0, 0, 20)
@@ -417,16 +614,18 @@ statusLabel.Position = UDim2.fromOffset(0, 239)
 statusLabel.ZIndex = 102
 
 connect(unlockButton.MouseEnter, function()
-	quickTween(unlockButton, 0.15, {
-		BackgroundColor3 = SILVER
-	})
-	playSound(hoverSound)
+quickTween(unlockButton, 0.15, {
+BackgroundColor3 = SILVER
+})
+
+animateShine(unlockButton)
+playSound(hoverSound)
 end)
 
 connect(unlockButton.MouseLeave, function()
-	quickTween(unlockButton, 0.15, {
-		BackgroundColor3 = WHITE
-	})
+quickTween(unlockButton, 0.15, {
+BackgroundColor3 = WHITE
+})
 end)
 
 --============================================================
@@ -445,9 +644,9 @@ loadingOverlay.Parent = gui
 local loadingGradient = Instance.new("UIGradient")
 loadingGradient.Rotation = 90
 loadingGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(3, 4, 6)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(11, 12, 16)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 4, 6))
+ColorSequenceKeypoint.new(0, Color3.fromRGB(3, 4, 6)),
+ColorSequenceKeypoint.new(0.5, Color3.fromRGB(11, 12, 16)),
+ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 4, 6))
 })
 loadingGradient.Parent = loadingOverlay
 
@@ -477,6 +676,17 @@ gearOuter.Parent = gearHolder
 
 corner(gearOuter, 999)
 
+local gearGlow = addGlow(
+gearOuter,
+GLOW,
+30,
+0.65
+)
+
+if gearGlow then
+gearGlow.ZIndex = 120
+end
+
 local gearHole = Instance.new("Frame")
 gearHole.BackgroundColor3 = DARK
 gearHole.Size = UDim2.fromOffset(18, 18)
@@ -488,21 +698,21 @@ gearHole.Parent = gearHolder
 corner(gearHole, 999)
 
 local loadTitle = makeLabel(
-	loadingContent,
-	"INITIALIZING",
-	21,
-	WHITE,
-	Enum.Font.GothamBold
+loadingContent,
+"INITIALIZING",
+21,
+WHITE,
+Enum.Font.GothamBold
 )
 
 loadTitle.Size = UDim2.new(1, 0, 0, 30)
 loadTitle.Position = UDim2.fromOffset(0, 88)
 
 local loadSub = makeLabel(
-	loadingContent,
-	"Preparing BubblesHook",
-	11,
-	LIGHTGREY
+loadingContent,
+"Preparing BubblesHook",
+11,
+LIGHTGREY
 )
 
 loadSub.Size = UDim2.new(1, 0, 0, 20)
@@ -519,6 +729,17 @@ bar.Parent = loadingContent
 corner(bar, 4)
 stroke(bar, BORDER_SOFT)
 
+local barGlow = addGlow(
+bar,
+GLOW_SOFT,
+18,
+0.75
+)
+
+if barGlow then
+barGlow.ZIndex = 120
+end
+
 local barFill = Instance.new("Frame")
 barFill.BackgroundColor3 = WHITE
 barFill.Size = UDim2.new(0, 0, 1, 0)
@@ -529,11 +750,11 @@ corner(barFill, 4)
 gradient(barFill)
 
 local percent = makeLabel(
-	loadingContent,
-	"0%",
-	10,
-	GREY,
-	Enum.Font.GothamMedium
+loadingContent,
+"0%",
+10,
+GREY,
+Enum.Font.GothamMedium
 )
 
 percent.Size = UDim2.new(1, 0, 0, 20)
@@ -555,43 +776,61 @@ revealOverlay.Parent = gui
 local revealBubbles = {}
 
 for i = 1, 180 do
-	local bubble = Instance.new("Frame")
+local bubble = Instance.new("Frame")
 
-	bubble.BackgroundColor3 = WHITE
-	bubble.BackgroundTransparency = 1
-	bubble.BorderSizePixel = 0
+bubble.BackgroundColor3 = WHITE
+bubble.BackgroundTransparency = 1
+bubble.BorderSizePixel = 0
 
-	local size = math.random(6, 48)
+local size = math.random(6, 48)
 
-	bubble.Size = UDim2.fromOffset(size, size)
+bubble.Size = UDim2.fromOffset(size, size)
 
-	bubble.Position = UDim2.fromScale(
-		math.random(-10, 110) / 100,
-		1.02 + math.random(-10, 120) / 100
-	)
+bubble.Position = UDim2.fromScale(
+math.random(-10, 110) / 100,
+1.02 + math.random(-10, 120) / 100
+)
 
-	bubble.ZIndex = 141
-	bubble.Parent = revealOverlay
+bubble.ZIndex = 141
+bubble.Parent = revealOverlay
 
-	corner(bubble, 999)
+corner(bubble, 999)
 
-	stroke(
-		bubble,
-		WHITE,
-		math.random(1, 2),
-		math.random(35, 75) / 100
-	)
+stroke(
+bubble,
+WHITE,
+math.random(1, 2),
+math.random(35, 75) / 100
+)
 
-	table.insert(revealBubbles, bubble)
+addGlow(
+bubble,
+GLOW,
+math.clamp(size, 10, 30),
+0.93
+)
+
+table.insert(revealBubbles, bubble)
 end
 
 local revealLogo = createLogo(
-	revealOverlay,
-	UDim2.new(0.5, -110, 1.3, 0),
-	UDim2.fromOffset(220, 220)
+revealOverlay,
+UDim2.new(0.5, -110, 1.3, 0),
+UDim2.fromOffset(220, 220)
 )
 
 revealLogo.ZIndex = 145
+
+local revealGlow = addGlow(
+revealLogo,
+GLOW,
+70,
+0.75
+)
+
+if revealGlow then
+revealGlow.ZIndex = 143
+end
 
 --============================================================
 -- MAIN HUB
@@ -619,14 +858,25 @@ hub.Position = UDim2.fromScale(0.5, 0.5)
 hub.BorderSizePixel = 0
 hub.Visible = false
 hub.ClipsDescendants = true
-hub.ZIndex = 2
+hub.ZIndex = 5
 hub.Parent = gui
 
 corner(hub, 8)
 stroke(hub, BORDER)
 
+local hubGlow = addGlow(
+hub,
+Color3.fromRGB(100, 115, 145),
+50,
+0.87
+)
+
+if hubGlow then
+hubGlow.ZIndex = 1
+end
+
 --============================================================
--- HUB TOP BAR
+-- TOP BAR
 --============================================================
 
 local topBar = Instance.new("Frame")
@@ -635,18 +885,27 @@ topBar.Size = UDim2.new(1, 0, 0, 68)
 topBar.BorderSizePixel = 0
 topBar.Parent = hub
 
+local topGradient = Instance.new("UIGradient")
+topGradient.Rotation = 0
+topGradient.Color = ColorSequence.new({
+ColorSequenceKeypoint.new(0, Color3.fromRGB(7, 8, 11)),
+ColorSequenceKeypoint.new(0.5, Color3.fromRGB(20, 22, 28)),
+ColorSequenceKeypoint.new(1, Color3.fromRGB(7, 8, 11))
+})
+topGradient.Parent = topBar
+
 local logo = createLogo(
-	topBar,
-	UDim2.fromOffset(20, 14),
-	UDim2.fromOffset(40, 40)
+topBar,
+UDim2.fromOffset(20, 14),
+UDim2.fromOffset(40, 40)
 )
 
 local title = makeLabel(
-	topBar,
-	"BUBBLESHOOK",
-	15,
-	WHITE,
-	Enum.Font.GothamBold
+topBar,
+"BUBBLESHOOK",
+15,
+WHITE,
+Enum.Font.GothamBold
 )
 
 title.Position = UDim2.fromOffset(72, 17)
@@ -654,11 +913,11 @@ title.Size = UDim2.fromOffset(180, 20)
 title.TextXAlignment = Enum.TextXAlignment.Left
 
 local subtitle = makeLabel(
-	topBar,
-	"INTERFACE",
-	9,
-	GREY,
-	Enum.Font.GothamMedium
+topBar,
+"INTERFACE",
+9,
+GREY,
+Enum.Font.GothamMedium
 )
 
 subtitle.Position = UDim2.fromOffset(72, 38)
@@ -670,38 +929,40 @@ subtitle.TextXAlignment = Enum.TextXAlignment.Left
 --============================================================
 
 local function windowButton(text, x)
-	local button = Instance.new("TextButton")
+local button = Instance.new("TextButton")
 
-	button.BackgroundColor3 = DARK
-	button.Text = text
-	button.TextColor3 = LIGHTGREY
-	button.TextSize = 18
-	button.Font = Enum.Font.Gotham
-	button.Size = UDim2.fromOffset(42, 42)
-	button.Position = UDim2.new(1, x, 0, 13)
-	button.BorderSizePixel = 0
-	button.AutoButtonColor = false
-	button.Parent = topBar
+button.BackgroundColor3 = DARK
+button.Text = text
+button.TextColor3 = LIGHTGREY
+button.TextSize = 18
+button.Font = Enum.Font.Gotham
+button.Size = UDim2.fromOffset(42, 42)
+button.Position = UDim2.new(1, x, 0, 13)
+button.BorderSizePixel = 0
+button.AutoButtonColor = false
+button.Parent = topBar
 
-	corner(button, 5)
+corner(button, 5)
+addShine(button)
 
-	connect(button.MouseEnter, function()
-		quickTween(button, 0.12, {
-			BackgroundColor3 = HOVER,
-			TextColor3 = WHITE
-		})
+connect(button.MouseEnter, function()
+quickTween(button, 0.12, {
+BackgroundColor3 = HOVER,
+TextColor3 = WHITE
+})
 
-		playSound(hoverSound)
-	end)
+animateShine(button)
+playSound(hoverSound)
+end)
 
-	connect(button.MouseLeave, function()
-		quickTween(button, 0.12, {
-			BackgroundColor3 = DARK,
-			TextColor3 = LIGHTGREY
-		})
-	end)
+connect(button.MouseLeave, function()
+quickTween(button, 0.12, {
+BackgroundColor3 = DARK,
+TextColor3 = LIGHTGREY
+})
+end)
 
-	return button
+return button
 end
 
 local closeButton = windowButton("×", -52)
@@ -738,100 +999,109 @@ tabLayout.Parent = tabsHolder
 
 local tabs = {}
 
+-- Forward declaration fixes page closure.
+local pages = {}
+
 local function createTab(name, icon)
-	local button = Instance.new("TextButton")
+local button = Instance.new("TextButton")
 
-	button.BackgroundColor3 = DARK
-	button.Text = ""
-	button.Size = UDim2.new(1, 0, 0, 40)
-	button.BorderSizePixel = 0
-	button.AutoButtonColor = false
-	button.Parent = tabsHolder
+button.BackgroundColor3 = DARK
+button.Text = ""
+button.Size = UDim2.new(1, 0, 0, 40)
+button.BorderSizePixel = 0
+button.AutoButtonColor = false
+button.Parent = tabsHolder
 
-	corner(button, 4)
+corner(button, 4)
+addShine(button)
 
-	local iconLabel = makeLabel(
-		button,
-		icon,
-		14,
-		LIGHTGREY,
-		Enum.Font.GothamBold
-	)
+local iconLabel = makeLabel(
+button,
+icon,
+14,
+LIGHTGREY,
+Enum.Font.GothamBold
+)
 
-	iconLabel.Position = UDim2.fromOffset(12, 0)
-	iconLabel.Size = UDim2.fromOffset(22, 40)
+iconLabel.Position = UDim2.fromOffset(12, 0)
+iconLabel.Size = UDim2.fromOffset(22, 40)
 
-	local textLabel = makeLabel(
-		button,
-		name,
-		11,
-		LIGHTGREY,
-		Enum.Font.GothamMedium
-	)
+local textLabel = makeLabel(
+button,
+name,
+11,
+LIGHTGREY,
+Enum.Font.GothamMedium
+)
 
-	textLabel.Position = UDim2.fromOffset(39, 0)
-	textLabel.Size = UDim2.new(1, -45, 1, 0)
-	textLabel.TextXAlignment = Enum.TextXAlignment.Left
+textLabel.Position = UDim2.fromOffset(39, 0)
+textLabel.Size = UDim2.new(1, -45, 1, 0)
+textLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	local indicator = Instance.new("Frame")
-	indicator.BackgroundColor3 = ACCENT
-	indicator.Size = UDim2.fromOffset(2, 18)
-	indicator.Position = UDim2.fromOffset(0, 11)
-	indicator.BorderSizePixel = 0
-	indicator.Visible = false
-	indicator.Parent = button
+local indicator = Instance.new("Frame")
+indicator.BackgroundColor3 = ACCENT
+indicator.Size = UDim2.fromOffset(2, 18)
+indicator.Position = UDim2.fromOffset(0, 11)
+indicator.BorderSizePixel = 0
+indicator.Visible = false
+indicator.Parent = button
 
-	tabs[name] = {
-		Button = button,
-		Icon = iconLabel,
-		Text = textLabel,
-		Indicator = indicator
-	}
+corner(indicator, 2)
 
-	connect(button.MouseEnter, function()
-		if not button:GetAttribute("Selected") then
-			quickTween(button, 0.12, {
-				BackgroundColor3 = HOVER
-			})
-		end
+tabs[name] = {
+Button = button,
+Icon = iconLabel,
+Text = textLabel,
+Indicator = indicator
+}
 
-		playSound(hoverSound)
-	end)
+connect(button.MouseEnter, function()
+if not button:GetAttribute("Selected") then
+quickTween(button, 0.12, {
+BackgroundColor3 = HOVER
+})
+end
 
-	connect(button.MouseLeave, function()
-		if not button:GetAttribute("Selected") then
-			quickTween(button, 0.12, {
-				BackgroundColor3 = DARK
-			})
-		end
-	end)
+animateShine(button)
+playSound(hoverSound)
+end)
 
-	connect(button.MouseButton1Click, function()
-		for tabName, data in pairs(tabs) do
-			local selected = tabName == name
+connect(button.MouseLeave, function()
+if not button:GetAttribute("Selected") then
+quickTween(button, 0.12, {
+BackgroundColor3 = DARK
+})
+end
+end)
 
-			data.Button:SetAttribute("Selected", selected)
-			data.Indicator.Visible = selected
+connect(button.MouseButton1Click, function()
+for tabName, data in pairs(tabs) do
+local selected = tabName == name
 
-			quickTween(data.Button, 0.15, {
-				BackgroundColor3 = selected and PANEL3 or DARK
-			})
+data.Button:SetAttribute("Selected", selected)
+data.Indicator.Visible = selected
 
-			data.Icon.TextColor3 =
-				selected and State.AccentColor or LIGHTGREY
+quickTween(data.Button, 0.15, {
+BackgroundColor3 = selected
+and Color3.fromRGB(27, 29, 36)
+or DARK
+})
 
-			data.Text.TextColor3 =
-				selected and WHITE or LIGHTGREY
-		end
+data.Icon.TextColor3 =
+selected and State.AccentColor or LIGHTGREY
 
-		for pageName, page in pairs(pages) do
-			page.Visible = pageName == name
-		end
+data.Text.TextColor3 =
+selected and WHITE or LIGHTGREY
+end
 
-		playSound(clickSound)
-	end)
+for pageName, page in pairs(pages) do
+page.Visible = pageName == name
+end
 
-	return button
+playSound(clickSound)
+end)
+
+return button
 end
 
 createTab("Home", "●")
@@ -863,21 +1133,21 @@ avatar.Parent = profile
 corner(avatar, 999)
 
 local avatarLetter = makeLabel(
-	avatar,
-	string.sub(player.DisplayName, 1, 1):upper(),
-	14,
-	WHITE,
-	Enum.Font.GothamBold
+avatar,
+string.sub(player.DisplayName, 1, 1):upper(),
+14,
+WHITE,
+Enum.Font.GothamBold
 )
 
 avatarLetter.Size = UDim2.fromScale(1, 1)
 
 local profileName = makeLabel(
-	profile,
-	player.DisplayName,
-	11,
-	WHITE,
-	Enum.Font.GothamMedium
+profile,
+player.DisplayName,
+11,
+WHITE,
+Enum.Font.GothamMedium
 )
 
 profileName.Position = UDim2.fromOffset(53, 9)
@@ -885,11 +1155,11 @@ profileName.Size = UDim2.new(1, -60, 0, 18)
 profileName.TextXAlignment = Enum.TextXAlignment.Left
 
 local profileStatus = makeLabel(
-	profile,
-	"CONNECTED",
-	8,
-	GREY,
-	Enum.Font.GothamMedium
+profile,
+"CONNECTED",
+8,
+GREY,
+Enum.Font.GothamMedium
 )
 
 profileStatus.Position = UDim2.fromOffset(53, 27)
@@ -897,7 +1167,7 @@ profileStatus.Size = UDim2.new(1, -60, 0, 15)
 profileStatus.TextXAlignment = Enum.TextXAlignment.Left
 
 --============================================================
--- CONTENT PAGES
+-- CONTENT
 --============================================================
 
 local content = Instance.new("Frame")
@@ -906,20 +1176,18 @@ content.Size = UDim2.new(1, -176, 1, -68)
 content.Position = UDim2.fromOffset(176, 68)
 content.Parent = hub
 
-local pages = {}
-
 local function createPage(name)
-	local page = Instance.new("Frame")
+local page = Instance.new("Frame")
 
-	page.Name = name
-	page.BackgroundTransparency = 1
-	page.Size = UDim2.fromScale(1, 1)
-	page.Visible = false
-	page.Parent = content
+page.Name = name
+page.BackgroundTransparency = 1
+page.Size = UDim2.fromScale(1, 1)
+page.Visible = false
+page.Parent = content
 
-	pages[name] = page
+pages[name] = page
 
-	return page
+return page
 end
 
 local homePage = createPage("Home")
@@ -928,273 +1196,343 @@ local settingsPage = createPage("Settings")
 local miscPage = createPage("Misc")
 
 local function pageTitle(parent, titleText, subText)
-	local t = makeLabel(
-		parent,
-		titleText,
-		20,
-		WHITE,
-		Enum.Font.GothamBold
-	)
+local t = makeLabel(
+parent,
+titleText,
+20,
+WHITE,
+Enum.Font.GothamBold
+)
 
-	t.Position = UDim2.fromOffset(24, 20)
-	t.Size = UDim2.new(1, -48, 0, 28)
-	t.TextXAlignment = Enum.TextXAlignment.Left
+t.Position = UDim2.fromOffset(24, 20)
+t.Size = UDim2.new(1, -48, 0, 28)
+t.TextXAlignment = Enum.TextXAlignment.Left
 
-	local s = makeLabel(
-		parent,
-		subText,
-		10,
-		GREY
-	)
+local s = makeLabel(
+parent,
+subText,
+10,
+GREY
+)
 
-	s.Position = UDim2.fromOffset(25, 49)
-	s.Size = UDim2.new(1, -50, 0, 20)
-	s.TextXAlignment = Enum.TextXAlignment.Left
+s.Position = UDim2.fromOffset(25, 49)
+s.Size = UDim2.new(1, -50, 0, 20)
+s.TextXAlignment = Enum.TextXAlignment.Left
 end
 
 local function createCard(parent, position, size, titleText)
-	local card = Instance.new("Frame")
+local card = Instance.new("Frame")
 
-	card.BackgroundColor3 = PANEL2
-	card.Position = position
-	card.Size = size
-	card.BorderSizePixel = 0
-	card.Parent = parent
+card.BackgroundColor3 = PANEL2
+card.Position = position
+card.Size = size
+card.BorderSizePixel = 0
+card.Parent = parent
 
-	corner(card, 5)
-	stroke(card, BORDER_SOFT)
+corner(card, 5)
+stroke(card, BORDER_SOFT)
 
-	local t = makeLabel(
-		card,
-		titleText,
-		10,
-		SILVER,
-		Enum.Font.GothamBold
-	)
+addShine(card)
 
-	t.Position = UDim2.fromOffset(15, 13)
-	t.Size = UDim2.new(1, -30, 0, 18)
-	t.TextXAlignment = Enum.TextXAlignment.Left
+local highlight = Instance.new("Frame")
+highlight.BackgroundColor3 = WHITE
+highlight.BackgroundTransparency = 0.965
+highlight.Size = UDim2.new(1, -2, 0, 1)
+highlight.Position = UDim2.fromOffset(1, 1)
+highlight.BorderSizePixel = 0
+highlight.Parent = card
 
-	return card
+corner(highlight, 5)
+
+connect(card.MouseEnter, function()
+quickTween(card, 0.18, {
+BackgroundColor3 = Color3.fromRGB(20, 21, 27)
+})
+
+animateShine(card)
+end)
+
+connect(card.MouseLeave, function()
+quickTween(card, 0.18, {
+BackgroundColor3 = PANEL2
+})
+end)
+
+local t = makeLabel(
+card,
+titleText,
+10,
+SILVER,
+Enum.Font.GothamBold
+)
+
+t.Position = UDim2.fromOffset(15, 13)
+t.Size = UDim2.new(1, -30, 0, 18)
+t.TextXAlignment = Enum.TextXAlignment.Left
+
+return card
 end
 
+--============================================================
+-- CONTROLS
+--============================================================
+
 local function createToggle(parent, y, textValue, default)
-	local row = Instance.new("Frame")
+local row = Instance.new("Frame")
 
-	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1, -30, 0, 34)
-	row.Position = UDim2.fromOffset(15, y)
-	row.Parent = parent
+row.BackgroundTransparency = 1
+row.Size = UDim2.new(1, -30, 0, 34)
+row.Position = UDim2.fromOffset(15, y)
+row.Parent = parent
 
-	local textLabel = makeLabel(
-		row,
-		textValue,
-		11,
-		SILVER
-	)
+local textLabel = makeLabel(
+row,
+textValue,
+11,
+SILVER
+)
 
-	textLabel.Size = UDim2.new(1, -60, 1, 0)
-	textLabel.TextXAlignment = Enum.TextXAlignment.Left
+textLabel.Size = UDim2.new(1, -60, 1, 0)
+textLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	local toggle = Instance.new("TextButton")
+local toggle = Instance.new("TextButton")
 
-	toggle.BackgroundColor3 = default and State.AccentColor or PANEL3
-	toggle.Size = UDim2.fromOffset(38, 20)
-	toggle.Position = UDim2.new(1, -38, 0.5, -10)
-	toggle.Text = ""
-	toggle.BorderSizePixel = 0
-	toggle.AutoButtonColor = false
-	toggle.Parent = row
+toggle.BackgroundColor3 = default and State.AccentColor or PANEL3
+toggle.Size = UDim2.fromOffset(38, 20)
+toggle.Position = UDim2.new(1, -38, 0.5, -10)
+toggle.Text = ""
+toggle.BorderSizePixel = 0
+toggle.AutoButtonColor = false
+toggle.Parent = row
 
-	corner(toggle, 10)
+corner(toggle, 10)
 
-	local knob = Instance.new("Frame")
+local knob = Instance.new("Frame")
 
-	knob.BackgroundColor3 = default and DARK or GREY
-	knob.Size = UDim2.fromOffset(14, 14)
-	knob.Position =
-		default
-		and UDim2.new(1, -17, 0.5, -7)
-		or UDim2.fromOffset(3, 3)
+knob.BackgroundColor3 = default and DARK or GREY
+knob.Size = UDim2.fromOffset(14, 14)
+knob.Position =
+default
+and UDim2.new(1, -17, 0.5, -7)
+or UDim2.fromOffset(3, 3)
 
-	knob.BorderSizePixel = 0
-	knob.Parent = toggle
+knob.BorderSizePixel = 0
+knob.Parent = toggle
 
-	corner(knob, 999)
+corner(knob, 999)
 
-	local state = default
+local state = default
 
-	connect(toggle.MouseButton1Click, function()
-		state = not state
+connect(toggle.MouseEnter, function()
+quickTween(toggle, 0.12, {
+BackgroundColor3 = state
+and State.AccentColor:Lerp(WHITE, 0.12)
+or HOVER
+})
 
-		playSound(clickSound)
+playSound(hoverSound)
+end)
 
-		quickTween(toggle, 0.16, {
-			BackgroundColor3 =
-				state and State.AccentColor or PANEL3
-		})
+connect(toggle.MouseLeave, function()
+quickTween(toggle, 0.12, {
+BackgroundColor3 =
+state and State.AccentColor or PANEL3
+})
+end)
 
-		quickTween(knob, 0.16, {
-			Position =
-				state
-				and UDim2.new(1, -17, 0.5, -7)
-				or UDim2.fromOffset(3, 3),
+connect(toggle.MouseButton1Click, function()
+state = not state
 
-			BackgroundColor3 =
-				state and DARK or GREY
-		})
-	end)
+playSound(clickSound)
+pulse(toggle, 2, 0.12)
 
-	return toggle
+quickTween(toggle, 0.16, {
+BackgroundColor3 =
+state and State.AccentColor or PANEL3
+})
+
+quickTween(knob, 0.16, {
+Position =
+state
+and UDim2.new(1, -17, 0.5, -7)
+or UDim2.fromOffset(3, 3),
+
+BackgroundColor3 =
+state and DARK or GREY
+})
+end)
+
+return toggle
 end
 
 local function createDropdown(parent, y, textValue, options, default)
-	local row = Instance.new("Frame")
+local row = Instance.new("Frame")
 
-	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1, -30, 0, 36)
-	row.Position = UDim2.fromOffset(15, y)
-	row.Parent = parent
+row.BackgroundTransparency = 1
+row.Size = UDim2.new(1, -30, 0, 36)
+row.Position = UDim2.fromOffset(15, y)
+row.Parent = parent
 
-	local textLabel = makeLabel(
-		row,
-		textValue,
-		11,
-		SILVER
-	)
+local textLabel = makeLabel(
+row,
+textValue,
+11,
+SILVER
+)
 
-	textLabel.Size = UDim2.new(0.45, 0, 1, 0)
-	textLabel.TextXAlignment = Enum.TextXAlignment.Left
+textLabel.Size = UDim2.new(0.45, 0, 1, 0)
+textLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	local dropdown = Instance.new("TextButton")
+local dropdown = Instance.new("TextButton")
 
-	dropdown.BackgroundColor3 = PANEL3
-	dropdown.Text = default or options[1]
-	dropdown.TextColor3 = LIGHTGREY
-	dropdown.TextSize = 10
-	dropdown.Font = Enum.Font.GothamMedium
-	dropdown.Size = UDim2.fromOffset(125, 28)
-	dropdown.Position = UDim2.new(1, -125, 0.5, -14)
-	dropdown.BorderSizePixel = 0
-	dropdown.AutoButtonColor = false
-	dropdown.Parent = row
+dropdown.BackgroundColor3 = PANEL3
+dropdown.Text = default or options[1]
+dropdown.TextColor3 = LIGHTGREY
+dropdown.TextSize = 10
+dropdown.Font = Enum.Font.GothamMedium
+dropdown.Size = UDim2.fromOffset(125, 28)
+dropdown.Position = UDim2.new(1, -125, 0.5, -14)
+dropdown.BorderSizePixel = 0
+dropdown.AutoButtonColor = false
+dropdown.Parent = row
 
-	corner(dropdown, 4)
+corner(dropdown, 4)
+addShine(dropdown)
 
-	local index = 1
+local index = 1
 
-	for i, option in ipairs(options) do
-		if option == default then
-			index = i
-			break
-		end
-	end
+for i, option in ipairs(options) do
+if option == default then
+index = i
+break
+end
+end
 
-	connect(dropdown.MouseButton1Click, function()
-		index += 1
+connect(dropdown.MouseEnter, function()
+quickTween(dropdown, 0.12, {
+BackgroundColor3 = HOVER,
+TextColor3 = WHITE
+})
 
-		if index > #options then
-			index = 1
-		end
+animateShine(dropdown)
+playSound(hoverSound)
+end)
 
-		dropdown.Text = options[index]
-		playSound(clickSound)
-	end)
+connect(dropdown.MouseLeave, function()
+quickTween(dropdown, 0.12, {
+BackgroundColor3 = PANEL3,
+TextColor3 = LIGHTGREY
+})
+end)
 
-	return dropdown
+connect(dropdown.MouseButton1Click, function()
+index += 1
+
+if index > #options then
+index = 1
+end
+
+dropdown.Text = options[index]
+
+pulse(dropdown, 2, 0.1)
+playSound(clickSound)
+end)
+
+return dropdown
 end
 
 local function createSlider(parent, y, textValue, default)
-	local row = Instance.new("Frame")
+local row = Instance.new("Frame")
 
-	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1, -30, 0, 48)
-	row.Position = UDim2.fromOffset(15, y)
-	row.Parent = parent
+row.BackgroundTransparency = 1
+row.Size = UDim2.new(1, -30, 0, 48)
+row.Position = UDim2.fromOffset(15, y)
+row.Parent = parent
 
-	local textLabel = makeLabel(
-		row,
-		textValue,
-		11,
-		SILVER
-	)
+local textLabel = makeLabel(
+row,
+textValue,
+11,
+SILVER
+)
 
-	textLabel.Size = UDim2.new(1, 0, 0, 20)
-	textLabel.TextXAlignment = Enum.TextXAlignment.Left
+textLabel.Size = UDim2.new(1, 0, 0, 20)
+textLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	local valueLabel = makeLabel(
-		row,
-		tostring(default) .. "%",
-		9,
-		GREY,
-		Enum.Font.GothamMedium
-	)
+local valueLabel = makeLabel(
+row,
+tostring(default) .. "%",
+9,
+GREY,
+Enum.Font.GothamMedium
+)
 
-	valueLabel.Position = UDim2.new(1, -40, 0, 0)
-	valueLabel.Size = UDim2.fromOffset(40, 20)
-	valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+valueLabel.Position = UDim2.new(1, -40, 0, 0)
+valueLabel.Size = UDim2.fromOffset(40, 20)
+valueLabel.TextXAlignment = Enum.TextXAlignment.Right
 
-	local slider = Instance.new("Frame")
+local slider = Instance.new("Frame")
 
-	slider.BackgroundColor3 = PANEL3
-	slider.Size = UDim2.new(1, 0, 0, 5)
-	slider.Position = UDim2.fromOffset(0, 29)
-	slider.BorderSizePixel = 0
-	slider.Parent = row
+slider.BackgroundColor3 = PANEL3
+slider.Size = UDim2.new(1, 0, 0, 5)
+slider.Position = UDim2.fromOffset(0, 29)
+slider.BorderSizePixel = 0
+slider.Parent = row
 
-	corner(slider, 3)
+corner(slider, 3)
 
-	local fill = Instance.new("Frame")
+local fill = Instance.new("Frame")
 
-	fill.BackgroundColor3 = State.AccentColor
-	fill.Size = UDim2.new(default / 100, 0, 1, 0)
-	fill.BorderSizePixel = 0
-	fill.Parent = slider
+fill.BackgroundColor3 = State.AccentColor
+fill.Size = UDim2.new(default / 100, 0, 1, 0)
+fill.BorderSizePixel = 0
+fill.Parent = slider
 
-	corner(fill, 3)
+corner(fill, 3)
 
-	connect(slider.InputBegan, function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
-			return
-		end
+addGlow(fill, State.AccentColor, 10, 0.7)
 
-		local mouse = player:GetMouse()
+connect(slider.InputBegan, function(input)
+if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+return
+end
 
-		local relative = math.clamp(
-			(mouse.X - slider.AbsolutePosition.X)
-				/ math.max(slider.AbsoluteSize.X, 1),
-			0,
-			1
-		)
+local mouse = player:GetMouse()
 
-		local value = math.floor(relative * 100)
+local relative = math.clamp(
+(mouse.X - slider.AbsolutePosition.X)
+/ math.max(slider.AbsoluteSize.X, 1),
+0,
+1
+)
 
-		valueLabel.Text = tostring(value) .. "%"
+local value = math.floor(relative * 100)
 
-		quickTween(fill, 0.12, {
-			Size = UDim2.new(relative, 0, 1, 0)
-		})
+valueLabel.Text = tostring(value) .. "%"
 
-		playSound(clickSound)
-	end)
+quickTween(fill, 0.12, {
+Size = UDim2.new(relative, 0, 1, 0)
+})
+
+playSound(clickSound)
+end)
 end
 
 --============================================================
--- HOME PAGE
+-- HOME
 --============================================================
 
 pageTitle(
-	homePage,
-	"Home",
-	"Main controls and quick actions"
+homePage,
+"Home",
+"Main controls and quick actions"
 )
 
 local homeMain = createCard(
-	homePage,
-	UDim2.fromOffset(24, 82),
-	UDim2.new(0.47, -28, 0, 280),
-	"MAIN"
+homePage,
+UDim2.fromOffset(24, 82),
+UDim2.new(0.47, -28, 0, 280),
+"MAIN"
 )
 
 createToggle(homeMain, 48, "Enabled", true)
@@ -1204,10 +1542,10 @@ createToggle(homeMain, 156, "Sprint", true)
 createToggle(homeMain, 192, "Fast Actions", false)
 
 local homeOther = createCard(
-	homePage,
-	UDim2.new(0.47, 4, 0, 82),
-	UDim2.new(0.53, -28, 0, 280),
-	"OTHER"
+homePage,
+UDim2.new(0.47, 4, 0, 82),
+UDim2.new(0.53, -28, 0, 280),
+"OTHER"
 )
 
 createToggle(homeOther, 48, "Option One", true)
@@ -1217,20 +1555,20 @@ createToggle(homeOther, 156, "Option Four", false)
 createToggle(homeOther, 192, "Notifications", true)
 
 --============================================================
--- VISUALS PAGE
+-- VISUALS
 --============================================================
 
 pageTitle(
-	visualsPage,
-	"Visuals",
-	"Interface appearance and display settings"
+visualsPage,
+"Visuals",
+"Interface appearance and display settings"
 )
 
 local visualsDisplay = createCard(
-	visualsPage,
-	UDim2.fromOffset(24, 82),
-	UDim2.new(0.47, -28, 0, 300),
-	"DISPLAY"
+visualsPage,
+UDim2.fromOffset(24, 82),
+UDim2.new(0.47, -28, 0, 300),
+"DISPLAY"
 )
 
 createToggle(visualsDisplay, 48, "Interface Effects", true)
@@ -1240,54 +1578,54 @@ createToggle(visualsDisplay, 156, "Compact Mode", false)
 createSlider(visualsDisplay, 198, "Interface Opacity", 90)
 
 local visualsAppearance = createCard(
-	visualsPage,
-	UDim2.new(0.47, 4, 0, 82),
-	UDim2.new(0.53, -28, 0, 300),
-	"APPEARANCE"
+visualsPage,
+UDim2.new(0.47, 4, 0, 82),
+UDim2.new(0.53, -28, 0, 300),
+"APPEARANCE"
 )
 
 createDropdown(
-	visualsAppearance,
-	48,
-	"Theme",
-	{"Dark", "Light", "Steel"},
-	"Dark"
+visualsAppearance,
+48,
+"Theme",
+{"Dark", "Light", "Steel"},
+"Dark"
 )
 
 createDropdown(
-	visualsAppearance,
-	84,
-	"Accent",
-	{"Silver", "White", "Blue"},
-	"Silver"
+visualsAppearance,
+84,
+"Accent",
+{"Silver", "White", "Blue"},
+"Silver"
 )
 
 createDropdown(
-	visualsAppearance,
-	120,
-	"Scale",
-	{"80%", "90%", "100%", "110%", "120%"},
-	"100%"
+visualsAppearance,
+120,
+"Scale",
+{"80%", "90%", "100%", "110%", "120%"},
+"100%"
 )
 
 createToggle(visualsAppearance, 162, "Blur", false)
 createToggle(visualsAppearance, 198, "Shadows", true)
 
 --============================================================
--- SETTINGS PAGE
+-- SETTINGS
 --============================================================
 
 pageTitle(
-	settingsPage,
-	"Settings",
-	"General interface preferences"
+settingsPage,
+"Settings",
+"General interface preferences"
 )
 
 local settingsGeneral = createCard(
-	settingsPage,
-	UDim2.fromOffset(24, 82),
-	UDim2.new(0.47, -28, 0, 300),
-	"GENERAL"
+settingsPage,
+UDim2.fromOffset(24, 82),
+UDim2.new(0.47, -28, 0, 300),
+"GENERAL"
 )
 
 createToggle(settingsGeneral, 48, "Enabled", true)
@@ -1296,34 +1634,34 @@ createToggle(settingsGeneral, 120, "Sounds", true)
 createToggle(settingsGeneral, 156, "Auto Save", true)
 
 createDropdown(
-	settingsGeneral,
-	198,
-	"Language",
-	{"English", "Spanish", "French"},
-	"English"
+settingsGeneral,
+198,
+"Language",
+{"English", "Spanish", "French"},
+"English"
 )
 
 local settingsInterface = createCard(
-	settingsPage,
-	UDim2.new(0.47, 4, 0, 82),
-	UDim2.new(0.53, -28, 0, 300),
-	"INTERFACE"
+settingsPage,
+UDim2.new(0.47, 4, 0, 82),
+UDim2.new(0.53, -28, 0, 300),
+"INTERFACE"
 )
 
 createDropdown(
-	settingsInterface,
-	48,
-	"Font",
-	{"Gotham", "SourceSans", "Arial"},
-	"Gotham"
+settingsInterface,
+48,
+"Font",
+{"Gotham", "SourceSans", "Arial"},
+"Gotham"
 )
 
 createDropdown(
-	settingsInterface,
-	84,
-	"Layout",
-	{"Compact", "Standard", "Wide"},
-	"Compact"
+settingsInterface,
+84,
+"Layout",
+{"Compact", "Standard", "Wide"},
+"Compact"
 )
 
 createToggle(settingsInterface, 126, "Show Profile", true)
@@ -1331,20 +1669,20 @@ createToggle(settingsInterface, 162, "Show Top Bar", true)
 createToggle(settingsInterface, 198, "Remember Tab", true)
 
 --============================================================
--- MISC PAGE
+-- MISC
 --============================================================
 
 pageTitle(
-	miscPage,
-	"Misc",
-	"Utility and interface options"
+miscPage,
+"Misc",
+"Utility and interface options"
 )
 
 local miscUtility = createCard(
-	miscPage,
-	UDim2.fromOffset(24, 82),
-	UDim2.new(0.47, -28, 0, 300),
-	"UTILITY"
+miscPage,
+UDim2.fromOffset(24, 82),
+UDim2.new(0.47, -28, 0, 300),
+"UTILITY"
 )
 
 createToggle(miscUtility, 48, "Notifications", true)
@@ -1353,18 +1691,18 @@ createToggle(miscUtility, 120, "Performance Mode", false)
 createToggle(miscUtility, 156, "Developer Options", false)
 
 createDropdown(
-	miscUtility,
-	198,
-	"Priority",
-	{"Normal", "High", "Low"},
-	"Normal"
+miscUtility,
+198,
+"Priority",
+{"Normal", "High", "Low"},
+"Normal"
 )
 
 local miscOther = createCard(
-	miscPage,
-	UDim2.new(0.47, 4, 0, 82),
-	UDim2.new(0.53, -28, 0, 300),
-	"OTHER"
+miscPage,
+UDim2.new(0.47, 4, 0, 82),
+UDim2.new(0.53, -28, 0, 300),
+"OTHER"
 )
 
 createToggle(miscOther, 48, "Extra Information", false)
@@ -1372,11 +1710,11 @@ createToggle(miscOther, 84, "Compact Labels", true)
 createToggle(miscOther, 120, "Experimental", false)
 
 createDropdown(
-	miscOther,
-	162,
-	"UI Scale",
-	{"80%", "90%", "100%", "110%", "120%"},
-	"100%"
+miscOther,
+162,
+"UI Scale",
+{"80%", "90%", "100%", "110%", "120%"},
+"100%"
 )
 
 --============================================================
@@ -1397,6 +1735,17 @@ navigation.Parent = gui
 corner(navigation, 9)
 stroke(navigation, BORDER)
 
+local navGlow = addGlow(
+navigation,
+Color3.fromRGB(100, 115, 145),
+30,
+0.9
+)
+
+if navGlow then
+navGlow.ZIndex = 499
+end
+
 local navLayout = Instance.new("UIListLayout")
 
 navLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -1413,67 +1762,69 @@ navPadding.Parent = navigation
 local navButtons = {}
 
 local function createNavButton(name, icon)
-	local button = Instance.new("TextButton")
+local button = Instance.new("TextButton")
 
-	button.Name = name
-	button.Size = UDim2.fromOffset(91, 42)
-	button.BackgroundColor3 = DARK
-	button.Text = ""
-	button.AutoButtonColor = false
-	button.BorderSizePixel = 0
-	button.ZIndex = 501
-	button.Parent = navigation
+button.Name = name
+button.Size = UDim2.fromOffset(91, 42)
+button.BackgroundColor3 = DARK
+button.Text = ""
+button.AutoButtonColor = false
+button.BorderSizePixel = 0
+button.ZIndex = 501
+button.Parent = navigation
 
-	corner(button, 6)
+corner(button, 6)
+addShine(button)
 
-	local iconLabel = makeLabel(
-		button,
-		icon,
-		16,
-		LIGHTGREY,
-		Enum.Font.GothamBold
-	)
+local iconLabel = makeLabel(
+button,
+icon,
+16,
+LIGHTGREY,
+Enum.Font.GothamBold
+)
 
-	iconLabel.Position = UDim2.fromOffset(7, 0)
-	iconLabel.Size = UDim2.fromOffset(26, 42)
+iconLabel.Position = UDim2.fromOffset(7, 0)
+iconLabel.Size = UDim2.fromOffset(26, 42)
 
-	local textLabel = makeLabel(
-		button,
-		name,
-		9,
-		LIGHTGREY,
-		Enum.Font.GothamBold
-	)
+local textLabel = makeLabel(
+button,
+name,
+9,
+LIGHTGREY,
+Enum.Font.GothamBold
+)
 
-	textLabel.Position = UDim2.fromOffset(32, 0)
-	textLabel.Size = UDim2.new(1, -36, 1, 0)
-	textLabel.TextXAlignment = Enum.TextXAlignment.Left
+textLabel.Position = UDim2.fromOffset(32, 0)
+textLabel.Size = UDim2.new(1, -36, 1, 0)
+textLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-	navButtons[name] = {
-		Button = button,
-		Icon = iconLabel,
-		Text = textLabel
-	}
+navButtons[name] = {
+Button = button,
+Icon = iconLabel,
+Text = textLabel
+}
 
-	connect(button.MouseEnter, function()
-		if State.CurrentTab ~= name then
-			quickTween(button, 0.12, {
-				BackgroundColor3 = HOVER
-			})
-		end
+connect(button.MouseEnter, function()
+if State.CurrentTab ~= name then
+quickTween(button, 0.12, {
+BackgroundColor3 = HOVER
+})
+end
 
-		playSound(hoverSound)
-	end)
+animateShine(button)
+playSound(hoverSound)
+end)
 
-	connect(button.MouseLeave, function()
-		if State.CurrentTab ~= name then
-			quickTween(button, 0.12, {
-				BackgroundColor3 = DARK
-			})
-		end
-	end)
+connect(button.MouseLeave, function()
+if State.CurrentTab ~= name then
+quickTween(button, 0.12, {
+BackgroundColor3 = DARK
+})
+end
+end)
 
-	return button
+return button
 end
 
 local navHub = createNavButton("Hub", "●")
@@ -1498,20 +1849,27 @@ navPages.Visible = false
 navPages.Parent = gui
 
 local function createNavPage(name)
-	local page = Instance.new("Frame")
+local page = Instance.new("Frame")
 
-	page.Name = name
-	page.BackgroundColor3 = DARKER
-	page.Size = UDim2.fromScale(1, 1)
-	page.BorderSizePixel = 0
-	page.Visible = false
-	page.ZIndex = 301
-	page.Parent = navPages
+page.Name = name
+page.BackgroundColor3 = DARKER
+page.Size = UDim2.fromScale(1, 1)
+page.BorderSizePixel = 0
+page.Visible = false
+page.ZIndex = 301
+page.Parent = navPages
 
-	corner(page, 9)
-	stroke(page, BORDER)
+corner(page, 9)
+stroke(page, BORDER)
 
-	return page
+addGlow(
+page,
+Color3.fromRGB(80, 90, 115),
+25,
+0.94
+)
+
+return page
 end
 
 local consolePage = createNavPage("Console")
@@ -1519,28 +1877,28 @@ local appearancePage = createNavPage("Appearance")
 local playersPage = createNavPage("Players")
 
 local function createNavTitle(parent, titleText, subtitleText)
-	local t = makeLabel(
-		parent,
-		titleText,
-		20,
-		WHITE,
-		Enum.Font.GothamBold
-	)
+local t = makeLabel(
+parent,
+titleText,
+20,
+WHITE,
+Enum.Font.GothamBold
+)
 
-	t.Position = UDim2.fromOffset(22, 18)
-	t.Size = UDim2.new(1, -44, 0, 28)
-	t.TextXAlignment = Enum.TextXAlignment.Left
+t.Position = UDim2.fromOffset(22, 18)
+t.Size = UDim2.new(1, -44, 0, 28)
+t.TextXAlignment = Enum.TextXAlignment.Left
 
-	local s = makeLabel(
-		parent,
-		subtitleText,
-		10,
-		GREY
-	)
+local s = makeLabel(
+parent,
+subtitleText,
+10,
+GREY
+)
 
-	s.Position = UDim2.fromOffset(23, 47)
-	s.Size = UDim2.new(1, -46, 0, 18)
-	s.TextXAlignment = Enum.TextXAlignment.Left
+s.Position = UDim2.fromOffset(23, 47)
+s.Size = UDim2.new(1, -46, 0, 18)
+s.TextXAlignment = Enum.TextXAlignment.Left
 end
 
 --============================================================
@@ -1548,9 +1906,9 @@ end
 --============================================================
 
 createNavTitle(
-	consolePage,
-	"Bubbles Console",
-	"Local interface command console"
+consolePage,
+"Bubbles Console",
+"Local interface command console"
 )
 
 local consoleOutput = Instance.new("ScrollingFrame")
@@ -1577,40 +1935,40 @@ consolePadding.PaddingRight = UDim.new(0, 10)
 consolePadding.Parent = consoleOutput
 
 connect(
-	consoleLayout:GetPropertyChangedSignal("AbsoluteContentSize"),
-	function()
-		consoleOutput.CanvasSize = UDim2.new(
-			0,
-			0,
-			0,
-			consoleLayout.AbsoluteContentSize.Y + 20
-		)
-	end
+consoleLayout:GetPropertyChangedSignal("AbsoluteContentSize"),
+function()
+consoleOutput.CanvasSize = UDim2.new(
+0,
+0,
+0,
+consoleLayout.AbsoluteContentSize.Y + 20
+)
+end
 )
 
 local function consolePrint(text, level)
-	local line = Instance.new("TextLabel")
+local line = Instance.new("TextLabel")
 
-	line.BackgroundTransparency = 1
-	line.TextXAlignment = Enum.TextXAlignment.Left
-	line.TextYAlignment = Enum.TextYAlignment.Center
-	line.Size = UDim2.new(1, 0, 0, 20)
-	line.TextSize = 10
-	line.Font = Enum.Font.Code
-	line.ZIndex = 303
-	line.Text = os.date("%H:%M:%S")
-		.. "  "
-		.. tostring(text)
+line.BackgroundTransparency = 1
+line.TextXAlignment = Enum.TextXAlignment.Left
+line.TextYAlignment = Enum.TextYAlignment.Center
+line.Size = UDim2.new(1, 0, 0, 20)
+line.TextSize = 10
+line.Font = Enum.Font.Code
+line.ZIndex = 303
+line.Text = os.date("%H:%M:%S")
+.. " "
+.. tostring(text)
 
-	if level == "error" then
-		line.TextColor3 = Color3.fromRGB(220, 150, 150)
-	elseif level == "warn" then
-		line.TextColor3 = Color3.fromRGB(220, 200, 140)
-	else
-		line.TextColor3 = LIGHTGREY
-	end
+if level == "error" then
+line.TextColor3 = Color3.fromRGB(220, 150, 150)
+elseif level == "warn" then
+line.TextColor3 = Color3.fromRGB(220, 200, 140)
+else
+line.TextColor3 = LIGHTGREY
+end
 
-	line.Parent = consoleOutput
+line.Parent = consoleOutput
 end
 
 consolePrint("Bubbles Console initialized.", "system")
@@ -1633,91 +1991,96 @@ consoleInput.ZIndex = 303
 consoleInput.Parent = consolePage
 
 corner(consoleInput, 5)
+stroke(consoleInput, BORDER_SOFT)
+
+connect(consoleInput.MouseEnter, function()
+quickTween(consoleInput, 0.12, {
+BackgroundColor3 = Color3.fromRGB(21, 22, 27)
+})
+end)
+
+connect(consoleInput.MouseLeave, function()
+quickTween(consoleInput, 0.12, {
+BackgroundColor3 = PANEL2
+})
+end)
 
 local function runConsoleCommand(command)
-	command = tostring(command or "")
-	command = command:gsub("^%s+", "")
-	command = command:gsub("%s+$", "")
-	command = string.lower(command)
+command = tostring(command or "")
+command = command:gsub("^%s+", "")
+command = command:gsub("%s+$`", "")
+command = string.lower(command)
 
-	if command == "" then
-		return
-	end
+if command == "" then
+return
+end
 
-	consolePrint("> " .. command)
+consolePrint("> " .. command)
 
-	table.insert(State.ConsoleHistory, command)
-	State.ConsoleIndex = #State.ConsoleHistory + 1
+table.insert(State.ConsoleHistory, command)
+State.ConsoleIndex = #State.ConsoleHistory + 1
 
-	if command == "help" then
+if command == "help" then
+consolePrint("Available commands:")
+consolePrint("help")
+consolePrint("clear")
+consolePrint("hub")
+consolePrint("hide")
+consolePrint("players")
+consolePrint("settings")
+consolePrint("version")
 
-		consolePrint("Available commands:")
-		consolePrint("help")
-		consolePrint("clear")
-		consolePrint("hub")
-		consolePrint("hide")
-		consolePrint("players")
-		consolePrint("settings")
-		consolePrint("version")
+elseif command == "clear" then
+for _, child in ipairs(consoleOutput:GetChildren()) do
+if child:IsA("TextLabel") then
+child:Destroy()
+end
+end
 
-	elseif command == "clear" then
+elseif command == "hub" then
+State.CurrentTab = "Hub"
+navPages.Visible = false
+hub.Visible = true
+hubShadow.Visible = true
 
-		for _, child in ipairs(consoleOutput:GetChildren()) do
-			if child:IsA("TextLabel") then
-				child:Destroy()
-			end
-		end
+elseif command == "hide" then
+hub.Visible = false
+hubShadow.Visible = false
 
-	elseif command == "hub" then
+elseif command == "players" then
+State.CurrentTab = "Players"
+navPages.Visible = true
+consolePage.Visible = false
+appearancePage.Visible = false
+playersPage.Visible = true
 
-		State.CurrentTab = "Hub"
-		navPages.Visible = false
-		hub.Visible = true
-		hubShadow.Visible = true
+elseif command == "settings" then
+State.CurrentTab = "Settings"
+navPages.Visible = true
+consolePage.Visible = false
+playersPage.Visible = false
+appearancePage.Visible = true
 
-	elseif command == "hide" then
+elseif command == "version" then
+consolePrint("BubblesHook V2 - premium UI build.", "system")
 
-		hub.Visible = false
-		hubShadow.Visible = false
-
-	elseif command == "players" then
-
-		State.CurrentTab = "Players"
-		navPages.Visible = true
-		consolePage.Visible = false
-		appearancePage.Visible = false
-		playersPage.Visible = true
-
-	elseif command == "settings" then
-
-		State.CurrentTab = "Settings"
-		navPages.Visible = true
-		consolePage.Visible = false
-		playersPage.Visible = false
-		appearancePage.Visible = true
-
-	elseif command == "version" then
-
-		consolePrint("BubblesHook V2 - fixed build.", "system")
-
-	else
-
-		consolePrint(
-			"Unknown command. Type 'help'.",
-			"warn"
-		)
-	end
+else
+consolePrint(
+"Unknown command. Type 'help'.",
+"warn"
+)
+end
 end
 
 connect(
-	consoleInput.FocusLost,
-	function(enterPressed)
-		if enterPressed then
-			local command = consoleInput.Text
-			consoleInput.Text = ""
-			runConsoleCommand(command)
-		end
-	end
+consoleInput.FocusLost,
+function(enterPressed)
+if enterPressed then
+local command = consoleInput.Text
+consoleInput.Text = ""
+runConsoleCommand(command)
+end
+end
 )
 
 --============================================================
@@ -1725,9 +2088,9 @@ connect(
 --============================================================
 
 createNavTitle(
-	appearancePage,
-	"Appearance",
-	"Customize the Bubbles interface"
+appearancePage,
+"Appearance",
+"Customize the Bubbles interface"
 )
 
 local appearanceLeft = Instance.new("Frame")
@@ -1742,11 +2105,11 @@ corner(appearanceLeft, 7)
 stroke(appearanceLeft, BORDER_SOFT)
 
 local appearanceTitle = makeLabel(
-	appearanceLeft,
-	"COLOR SETTINGS",
-	10,
-	SILVER,
-	Enum.Font.GothamBold
+appearanceLeft,
+"COLOR SETTINGS",
+10,
+SILVER,
+Enum.Font.GothamBold
 )
 
 appearanceTitle.Position = UDim2.fromOffset(15, 13)
@@ -1767,30 +2130,42 @@ stroke(colorWheel, BORDER)
 local wheelDots = {}
 
 for i = 0, 71 do
-	local angle = (i / 72) * math.pi * 2
-	local radius = 82
+local angle = (i / 72) * math.pi * 2
+local radius = 82
 
-	local dot = Instance.new("TextButton")
+local dot = Instance.new("TextButton")
 
-	dot.Text = ""
-	dot.AutoButtonColor = false
-	dot.BackgroundColor3 = Color3.fromHSV(i / 72, 1, 1)
-	dot.Size = UDim2.fromOffset(12, 12)
-	dot.AnchorPoint = Vector2.new(0.5, 0.5)
+dot.Text = ""
+dot.AutoButtonColor = false
+dot.BackgroundColor3 = Color3.fromHSV(i / 72, 1, 1)
+dot.Size = UDim2.fromOffset(12, 12)
+dot.AnchorPoint = Vector2.new(0.5, 0.5)
 
-	dot.Position = UDim2.new(
-		0.5,
-		math.cos(angle) * radius,
-		0.5,
-		math.sin(angle) * radius
-	)
+dot.Position = UDim2.new(
+0.5,
+math.cos(angle) * radius,
+0.5,
+math.sin(angle) * radius
+)
 
-	dot.BorderSizePixel = 0
-	dot.Parent = colorWheel
+dot.BorderSizePixel = 0
+dot.Parent = colorWheel
 
-	corner(dot, 999)
+corner(dot, 999)
 
-	table.insert(wheelDots, dot)
+connect(dot.MouseEnter, function()
+quickTween(dot, 0.1, {
+Size = UDim2.fromOffset(16, 16)
+})
+end)
+
+connect(dot.MouseLeave, function()
+quickTween(dot, 0.1, {
+Size = UDim2.fromOffset(12, 12)
+})
+end)
+
+table.insert(wheelDots, dot)
 end
 
 local colorPreview = Instance.new("Frame")
@@ -1805,39 +2180,55 @@ colorPreview.Parent = colorWheel
 corner(colorPreview, 999)
 stroke(colorPreview, WHITE, 2, 0.25)
 
+local previewGlow = addGlow(
+colorPreview,
+State.AccentColor,
+25,
+0.55
+)
+
+if previewGlow then
+previewGlow.ZIndex = 0
+end
+
 local function setAccentColor(color)
-	State.AccentColor = color
+State.AccentColor = color
 
-	colorPreview.BackgroundColor3 = color
+colorPreview.BackgroundColor3 = color
 
-	for _, data in pairs(navButtons) do
-		data.Icon.TextColor3 =
-			State.CurrentTab == data.Text.Text
-			and color
-			or LIGHTGREY
-	end
+if previewGlow then
+previewGlow.ImageColor3 = color
+end
 
-	for _, data in pairs(tabs) do
-		data.Indicator.BackgroundColor3 = color
+for name, data in pairs(navButtons) do
+data.Icon.TextColor3 =
+State.CurrentTab == name
+and color
+or LIGHTGREY
+end
 
-		if data.Button:GetAttribute("Selected") then
-			data.Icon.TextColor3 = color
-		end
-	end
+for _, data in pairs(tabs) do
+data.Indicator.BackgroundColor3 = color
+
+if data.Button:GetAttribute("Selected") then
+data.Icon.TextColor3 = color
+end
+end
 end
 
 for i, dot in ipairs(wheelDots) do
-	connect(dot.MouseButton1Click, function()
-		setAccentColor(
-			Color3.fromHSV(
-				(i - 1) / 72,
-				1,
-				1
-			)
-		)
+connect(dot.MouseButton1Click, function()
+setAccentColor(
+Color3.fromHSV(
+(i - 1) / 72,
+1,
+1
+)
+)
 
-		playSound(clickSound)
-	end)
+playSound(clickSound)
+pulse(colorPreview, 4, 0.12)
+end)
 end
 
 local accentColorButton = Instance.new("TextButton")
@@ -1854,10 +2245,26 @@ accentColorButton.AutoButtonColor = false
 accentColorButton.Parent = appearanceLeft
 
 corner(accentColorButton, 5)
+addShine(accentColorButton)
+
+connect(accentColorButton.MouseEnter, function()
+quickTween(accentColorButton, 0.12, {
+BackgroundColor3 = WHITE
+})
+
+animateShine(accentColorButton)
+playSound(hoverSound)
+end)
+
+connect(accentColorButton.MouseLeave, function()
+quickTween(accentColorButton, 0.12, {
+BackgroundColor3 = State.AccentColor
+})
+end)
 
 connect(accentColorButton.MouseButton1Click, function()
-	setAccentColor(Color3.fromRGB(235, 238, 245))
-	playSound(clickSound)
+setAccentColor(Color3.fromRGB(235, 238, 245))
+playSound(clickSound)
 end)
 
 --============================================================
@@ -1865,9 +2272,9 @@ end)
 --============================================================
 
 createNavTitle(
-	playersPage,
-	"Players",
-	"Select a player to spectate"
+playersPage,
+"Players",
+"Select a player to spectate"
 )
 
 local playerList = Instance.new("ScrollingFrame")
@@ -1904,12 +2311,23 @@ selectedPanel.Parent = playersPage
 corner(selectedPanel, 7)
 stroke(selectedPanel, BORDER_SOFT)
 
+local selectedGlow = addGlow(
+selectedPanel,
+State.AccentColor,
+25,
+0.94
+)
+
+if selectedGlow then
+selectedGlow.ZIndex = 0
+end
+
 local selectedTitle = makeLabel(
-	selectedPanel,
-	"NO PLAYER SELECTED",
-	15,
-	WHITE,
-	Enum.Font.GothamBold
+selectedPanel,
+"NO PLAYER SELECTED",
+15,
+WHITE,
+Enum.Font.GothamBold
 )
 
 selectedTitle.Position = UDim2.fromOffset(18, 18)
@@ -1917,10 +2335,10 @@ selectedTitle.Size = UDim2.new(1, -36, 0, 24)
 selectedTitle.TextXAlignment = Enum.TextXAlignment.Left
 
 local selectedStatus = makeLabel(
-	selectedPanel,
-	"Select a player from the list.",
-	10,
-	GREY
+selectedPanel,
+"Select a player from the list.",
+10,
+GREY
 )
 
 selectedStatus.Position = UDim2.fromOffset(18, 47)
@@ -1941,6 +2359,7 @@ spectateButton.AutoButtonColor = false
 spectateButton.Parent = selectedPanel
 
 corner(spectateButton, 5)
+addShine(spectateButton)
 
 local stopSpectateButton = Instance.new("TextButton")
 
@@ -1956,12 +2375,13 @@ stopSpectateButton.AutoButtonColor = false
 stopSpectateButton.Parent = selectedPanel
 
 corner(stopSpectateButton, 5)
+addShine(stopSpectateButton)
 
 local safeInfo = makeLabel(
-	selectedPanel,
-	"Local/client-side player controls.",
-	9,
-	GREY
+selectedPanel,
+"Local/client-side player controls.",
+9,
+GREY
 )
 
 safeInfo.Position = UDim2.fromOffset(18, 210)
@@ -1969,134 +2389,166 @@ safeInfo.Size = UDim2.new(1, -36, 0, 40)
 safeInfo.TextWrapped = true
 safeInfo.TextXAlignment = Enum.TextXAlignment.Left
 
+local function setupActionButton(button, normal, hover)
+connect(button.MouseEnter, function()
+quickTween(button, 0.12, {
+BackgroundColor3 = hover
+})
+
+animateShine(button)
+playSound(hoverSound)
+end)
+
+connect(button.MouseLeave, function()
+quickTween(button, 0.12, {
+BackgroundColor3 = normal
+})
+end)
+end
+
+setupActionButton(
+spectateButton,
+State.AccentColor,
+WHITE
+)
+
+setupActionButton(
+stopSpectateButton,
+PANEL3,
+HOVER
+)
+
 --============================================================
--- PLAYER LIST FUNCTIONS
+-- PLAYER LIST
 --============================================================
 
 local function clearPlayerList()
-	for _, child in ipairs(playerList:GetChildren()) do
-		if child:IsA("TextButton") then
-			child:Destroy()
-		end
-	end
+for _, child in ipairs(playerList:GetChildren()) do
+if child:IsA("TextButton") then
+child:Destroy()
+end
+end
 end
 
 local function selectPlayer(target)
-	State.SelectedPlayer = target
+State.SelectedPlayer = target
 
-	if target then
-		selectedTitle.Text = target.DisplayName
+if target then
+selectedTitle.Text = target.DisplayName
 
-		selectedStatus.Text =
-			"@" .. target.Name
-			.. "\nUserId: "
-			.. tostring(target.UserId)
-	else
-		selectedTitle.Text = "NO PLAYER SELECTED"
-		selectedStatus.Text = "Select a player from the list."
-	end
+selectedStatus.Text =
+"@" .. target.Name
+.. "\nUserId: "
+.. tostring(target.UserId)
+else
+selectedTitle.Text = "NO PLAYER SELECTED"
+selectedStatus.Text = "Select a player from the list."
+end
 end
 
 local function refreshPlayerList()
-	clearPlayerList()
+clearPlayerList()
 
-	for _, target in ipairs(Players:GetPlayers()) do
-		local button = Instance.new("TextButton")
+for _, target in ipairs(Players:GetPlayers()) do
+local button = Instance.new("TextButton")
 
-		button.Name = target.Name
-		button.BackgroundColor3 = PANEL2
-		button.Text = ""
-		button.Size = UDim2.new(1, 0, 0, 48)
-		button.BorderSizePixel = 0
-		button.AutoButtonColor = false
-		button.Parent = playerList
+button.Name = target.Name
+button.BackgroundColor3 = PANEL2
+button.Text = ""
+button.Size = UDim2.new(1, 0, 0, 48)
+button.BorderSizePixel = 0
+button.AutoButtonColor = false
+button.Parent = playerList
 
-		corner(button, 5)
+corner(button, 5)
+addShine(button)
 
-		local avatarCircle = Instance.new("Frame")
+local avatarCircle = Instance.new("Frame")
 
-		avatarCircle.BackgroundColor3 = PANEL3
-		avatarCircle.Size = UDim2.fromOffset(32, 32)
-		avatarCircle.Position = UDim2.fromOffset(8, 8)
-		avatarCircle.BorderSizePixel = 0
-		avatarCircle.Parent = button
+avatarCircle.BackgroundColor3 = PANEL3
+avatarCircle.Size = UDim2.fromOffset(32, 32)
+avatarCircle.Position = UDim2.fromOffset(8, 8)
+avatarCircle.BorderSizePixel = 0
+avatarCircle.Parent = button
 
-		corner(avatarCircle, 999)
+corner(avatarCircle, 999)
 
-		local avatarText = makeLabel(
-			avatarCircle,
-			string.sub(target.DisplayName, 1, 1):upper(),
-			12,
-			WHITE,
-			Enum.Font.GothamBold
-		)
+local avatarText = makeLabel(
+avatarCircle,
+string.sub(target.DisplayName, 1, 1):upper(),
+12,
+WHITE,
+Enum.Font.GothamBold
+)
 
-		avatarText.Size = UDim2.fromScale(1, 1)
+avatarText.Size = UDim2.fromScale(1, 1)
 
-		local nameLabel = makeLabel(
-			button,
-			target.DisplayName,
-			10,
-			WHITE,
-			Enum.Font.GothamMedium
-		)
+local nameLabel = makeLabel(
+button,
+target.DisplayName,
+10,
+WHITE,
+Enum.Font.GothamMedium
+)
 
-		nameLabel.Position = UDim2.fromOffset(50, 6)
-		nameLabel.Size = UDim2.new(1, -58, 0, 18)
-		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+nameLabel.Position = UDim2.fromOffset(50, 6)
+nameLabel.Size = UDim2.new(1, -58, 0, 18)
+nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 
-		local username = makeLabel(
-			button,
-			"@" .. target.Name,
-			8,
-			GREY
-		)
+local username = makeLabel(
+button,
+"@" .. target.Name,
+8,
+GREY
+)
 
-		username.Position = UDim2.fromOffset(50, 25)
-		username.Size = UDim2.new(1, -58, 0, 15)
-		username.TextXAlignment = Enum.TextXAlignment.Left
+username.Position = UDim2.fromOffset(50, 25)
+username.Size = UDim2.new(1, -58, 0, 15)
+username.TextXAlignment = Enum.TextXAlignment.Left
 
-		connect(button.MouseEnter, function()
-			quickTween(button, 0.1, {
-				BackgroundColor3 = HOVER
-			})
+connect(button.MouseEnter, function()
+quickTween(button, 0.1, {
+BackgroundColor3 = HOVER
+})
 
-			playSound(hoverSound)
-		end)
+animateShine(button)
+playSound(hoverSound)
+end)
 
-		connect(button.MouseLeave, function()
-			quickTween(button, 0.1, {
-				BackgroundColor3 = PANEL2
-			})
-		end)
+connect(button.MouseLeave, function()
+quickTween(button, 0.1, {
+BackgroundColor3 = PANEL2
+})
+end)
 
-		connect(button.MouseButton1Click, function()
-			selectPlayer(target)
-			playSound(clickSound)
-		end)
-	end
+connect(button.MouseButton1Click, function()
+selectPlayer(target)
+playSound(clickSound)
+pulse(button, 2, 0.1)
+end)
+end
 
-	playerList.CanvasSize = UDim2.new(
-		0,
-		0,
-		0,
-		playerLayout.AbsoluteContentSize.Y + 20
-	)
+playerList.CanvasSize = UDim2.new(
+0,
+0,
+0,
+playerLayout.AbsoluteContentSize.Y + 20
+)
 end
 
 connect(Players.PlayerAdded, function()
-	task.wait()
-	refreshPlayerList()
+task.wait()
+refreshPlayerList()
 end)
 
 connect(Players.PlayerRemoving, function(target)
-	if State.SelectedPlayer == target then
-		selectPlayer(nil)
-	end
+if State.SelectedPlayer == target then
+selectPlayer(nil)
+end
 
-	task.wait()
-	refreshPlayerList()
+task.wait()
+refreshPlayerList()
 end)
 
 refreshPlayerList()
@@ -2106,168 +2558,167 @@ refreshPlayerList()
 --============================================================
 
 local function stopSpectating()
-	State.Spectating = false
+State.Spectating = false
 
-	local camera = workspace.CurrentCamera
+local camera = workspace.CurrentCamera
 
-	if camera then
-		camera.CameraType = Enum.CameraType.Custom
+if camera then
+camera.CameraType = Enum.CameraType.Custom
 
-		local character = player.Character
+local character = player.Character
 
-		if character then
-			local humanoid =
-				character:FindFirstChildOfClass("Humanoid")
+if character then
+local humanoid =
+character:FindFirstChildOfClass("Humanoid")
 
-			if humanoid then
-				camera.CameraSubject = humanoid
-			end
-		end
-	end
+if humanoid then
+camera.CameraSubject = humanoid
+end
+end
+end
 
-	spectateButton.Text = "SPECTATE"
+spectateButton.Text = "SPECTATE"
 end
 
 connect(spectateButton.MouseButton1Click, function()
-	local target = State.SelectedPlayer
+local target = State.SelectedPlayer
 
-	if not target then
-		selectedStatus.Text = "No player selected."
-		return
-	end
+if not target then
+selectedStatus.Text = "No player selected."
+return
+end
 
-	if target == player then
-		selectedStatus.Text = "You are already viewing yourself."
-		return
-	end
+if target == player then
+selectedStatus.Text = "You are already viewing yourself."
+return
+end
 
-	local character = target.Character
+local character = target.Character
 
-	if not character then
-		selectedStatus.Text = "Character unavailable."
-		return
-	end
+if not character then
+selectedStatus.Text = "Character unavailable."
+return
+end
 
-	local humanoid =
-		character:FindFirstChildOfClass("Humanoid")
+local humanoid =
+character:FindFirstChildOfClass("Humanoid")
 
-	if not humanoid then
-		selectedStatus.Text = "Humanoid unavailable."
-		return
-	end
+if not humanoid then
+selectedStatus.Text = "Humanoid unavailable."
+return
+end
 
-	local camera = workspace.CurrentCamera
+local camera = workspace.CurrentCamera
 
-	State.Spectating = true
+State.Spectating = true
 
-	camera.CameraType = Enum.CameraType.Custom
-	camera.CameraSubject = humanoid
+camera.CameraType = Enum.CameraType.Custom
+camera.CameraSubject = humanoid
 
-	spectateButton.Text = "SPECTATING"
+spectateButton.Text = "SPECTATING"
 
-	playSound(clickSound)
+playSound(clickSound)
+pulse(spectateButton, 3, 0.12)
 end)
 
 connect(stopSpectateButton.MouseButton1Click, function()
-	stopSpectating()
-	playSound(clickSound)
+stopSpectating()
+playSound(clickSound)
 end)
 
 --============================================================
--- NAVIGATION FUNCTIONS
+-- NAVIGATION
 --============================================================
 
 local function updateNavButtons()
-	for name, data in pairs(navButtons) do
-		local selected = State.CurrentTab == name
+for name, data in pairs(navButtons) do
+local selected = State.CurrentTab == name
 
-		quickTween(data.Button, 0.15, {
-			BackgroundColor3 = selected and PANEL3 or DARK
-		})
+quickTween(data.Button, 0.18, {
+BackgroundColor3 = selected
+and Color3.fromRGB(27, 29, 36)
+or DARK
+})
 
-		data.Icon.TextColor3 =
-			selected and State.AccentColor or LIGHTGREY
+data.Icon.TextColor3 =
+selected and State.AccentColor or LIGHTGREY
 
-		data.Text.TextColor3 =
-			selected and WHITE or LIGHTGREY
-	end
+data.Text.TextColor3 =
+selected and WHITE or LIGHTGREY
+end
 end
 
 local function hideNavPages()
-	consolePage.Visible = false
-	appearancePage.Visible = false
-	playersPage.Visible = false
+consolePage.Visible = false
+appearancePage.Visible = false
+playersPage.Visible = false
 end
 
 local function openNavPage(name)
-	if State.Unloaded then
-		return
-	end
+if State.Unloaded then
+return
+end
 
-	State.CurrentTab = name
-	updateNavButtons()
+State.CurrentTab = name
+updateNavButtons()
 
-	if name == "Hub" then
+if name == "Hub" then
+hideNavPages()
 
-		hideNavPages()
+navPages.Visible = false
 
-		navPages.Visible = false
+hub.Visible = true
+hubShadow.Visible = true
 
-		hub.Visible = true
-		hubShadow.Visible = true
+elseif name == "Console" then
+hideNavPages()
 
-	elseif name == "Console" then
+consolePage.Visible = true
+navPages.Visible = true
 
-		hideNavPages()
+hub.Visible = false
+hubShadow.Visible = false
 
-		consolePage.Visible = true
-		navPages.Visible = true
+elseif name == "Settings" then
+hideNavPages()
 
-		hub.Visible = false
-		hubShadow.Visible = false
+appearancePage.Visible = true
+navPages.Visible = true
 
-	elseif name == "Settings" then
+hub.Visible = false
+hubShadow.Visible = false
 
-		hideNavPages()
+elseif name == "Players" then
+hideNavPages()
 
-		appearancePage.Visible = true
-		navPages.Visible = true
+playersPage.Visible = true
+navPages.Visible = true
 
-		hub.Visible = false
-		hubShadow.Visible = false
+refreshPlayerList()
 
-	elseif name == "Players" then
-
-		hideNavPages()
-
-		playersPage.Visible = true
-		navPages.Visible = true
-
-		refreshPlayerList()
-
-		hub.Visible = false
-		hubShadow.Visible = false
-	end
+hub.Visible = false
+hubShadow.Visible = false
+end
 end
 
 connect(navHub.MouseButton1Click, function()
-	playSound(clickSound)
-	openNavPage("Hub")
+playSound(clickSound)
+openNavPage("Hub")
 end)
 
 connect(navConsole.MouseButton1Click, function()
-	playSound(clickSound)
-	openNavPage("Console")
+playSound(clickSound)
+openNavPage("Console")
 end)
 
 connect(navSettings.MouseButton1Click, function()
-	playSound(clickSound)
-	openNavPage("Settings")
+playSound(clickSound)
+openNavPage("Settings")
 end)
 
 connect(navPlayers.MouseButton1Click, function()
-	playSound(clickSound)
-	openNavPage("Players")
+playSound(clickSound)
+openNavPage("Players")
 end)
 
 --============================================================
@@ -2290,54 +2741,61 @@ openButton.Parent = gui
 
 corner(openButton, 999)
 stroke(openButton, BORDER)
+
+local openGlow = addGlow(
+openButton,
+GLOW,
+30,
+0.62
+)
+
+if openGlow then
+openGlow.ZIndex = 449
+end
+
 gradient(openButton)
 
---============================================================
--- OPEN BUTTON LOGO
---============================================================
-
 local openLogo = createLogo(
-	openButton,
-	UDim2.fromOffset(9, 9),
-	UDim2.fromOffset(34, 34)
+openButton,
+UDim2.fromOffset(9, 9),
+UDim2.fromOffset(34, 34)
 )
 
 openLogo.ZIndex = 451
 
--- Make sure every bubble/highlight is above the button.
 for _, child in ipairs(openLogo:GetDescendants()) do
-	if child:IsA("GuiObject") then
-		child.ZIndex = 451
-	end
+if child:IsA("GuiObject") then
+child.ZIndex = 451
+end
 end
 
 connect(openButton.MouseEnter, function()
-	quickTween(openButton, 0.15, {
-		Size = UDim2.fromOffset(58, 58)
-	})
+quickTween(openButton, 0.15, {
+Size = UDim2.fromOffset(58, 58)
+})
 
-	quickTween(openLogo, 0.15, {
-		Position = UDim2.fromOffset(12, 12)
-	})
+quickTween(openLogo, 0.15, {
+Position = UDim2.fromOffset(12, 12)
+})
 
-	playSound(hoverSound)
+playSound(hoverSound)
 end)
 
 connect(openButton.MouseLeave, function()
-	quickTween(openButton, 0.15, {
-		Size = UDim2.fromOffset(52, 52)
-	})
+quickTween(openButton, 0.15, {
+Size = UDim2.fromOffset(52, 52)
+})
 
-	quickTween(openLogo, 0.15, {
-		Position = UDim2.fromOffset(9, 9)
-	})
+quickTween(openLogo, 0.15, {
+Position = UDim2.fromOffset(9, 9)
+})
 end)
 
 connect(openButton.MouseButton1Click, function()
-	playSound(clickSound)
+playSound(clickSound)
 
-	openButton.Visible = false
-	openNavPage("Hub")
+openButton.Visible = false
+openNavPage("Hub")
 end)
 
 --============================================================
@@ -2351,66 +2809,64 @@ local normalSize = UDim2.fromOffset(760, 470)
 local normalPosition = UDim2.fromScale(0.5, 0.5)
 
 connect(minButton.MouseButton1Click, function()
-	playSound(clickSound)
+playSound(clickSound)
 
-	if minimized then
+if minimized then
+minimized = false
 
-		minimized = false
+quickTween(hub, 0.25, {
+Size = normalSize
+})
 
-		quickTween(hub, 0.25, {
-			Size = normalSize
-		})
+else
+minimized = true
 
-	else
-
-		minimized = true
-
-		quickTween(hub, 0.25, {
-			Size = UDim2.fromOffset(760, 68)
-		})
-	end
+quickTween(hub, 0.25, {
+Size = UDim2.fromOffset(760, 68)
+})
+end
 end)
 
 connect(maxButton.MouseButton1Click, function()
-	playSound(clickSound)
+playSound(clickSound)
 
-	if maximized then
+if maximized then
+maximized = false
 
-		maximized = false
+quickTween(hub, 0.25, {
+Size = normalSize,
+Position = normalPosition
+})
 
-		quickTween(hub, 0.25, {
-			Size = normalSize,
-			Position = normalPosition
-		})
+quickTween(hubShadow, 0.25, {
+Size = UDim2.fromOffset(775, 485),
+Position = normalPosition
+})
 
-		quickTween(hubShadow, 0.25, {
-			Size = UDim2.fromOffset(775, 485),
-			Position = normalPosition
-		})
+else
+maximized = true
 
-	else
+quickTween(hub, 0.25, {
+Size = UDim2.fromScale(0.88, 0.82),
+Position = UDim2.fromScale(0.5, 0.5)
+})
 
-		maximized = true
-
-		quickTween(hub, 0.25, {
-			Size = UDim2.fromScale(0.88, 0.82),
-			Position = UDim2.fromScale(0.5, 0.5)
-		})
-
-		quickTween(hubShadow, 0.25, {
-			Size = UDim2.fromScale(0.89, 0.83),
-			Position = UDim2.fromScale(0.5, 0.5)
-		})
-	end
+quickTween(hubShadow, 0.25, {
+Size = UDim2.fromScale(0.89, 0.83),
+Position = UDim2.fromScale(0.5, 0.5)
+})
+end
 end)
 
 connect(closeButton.MouseButton1Click, function()
-	playSound(clickSound)
+playSound(clickSound)
 
-	hub.Visible = false
-	hubShadow.Visible = false
+hub.Visible = false
+hubShadow.Visible = false
 
-	openButton.Visible = true
+openButton.Visible = true
+
+pulse(openButton, 3, 0.15)
 end)
 
 --============================================================
@@ -2422,38 +2878,87 @@ local dragStart
 local startPos
 
 connect(topBar.InputBegan, function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPos = hub.Position
-	end
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+dragging = true
+dragStart = input.Position
+startPos = hub.Position
+end
 end)
 
 connect(topBar.InputEnded, function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = false
-	end
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+dragging = false
+end
 end)
 
 connect(UserInputService.InputChanged, function(input)
-	if not dragging then
-		return
-	end
+if not dragging then
+return
+end
 
-	if input.UserInputType ~= Enum.UserInputType.MouseMovement then
-		return
-	end
+if input.UserInputType ~= Enum.UserInputType.MouseMovement then
+return
+end
 
-	local delta = input.Position - dragStart
+local delta = input.Position - dragStart
 
-	hub.Position = UDim2.new(
-		startPos.X.Scale,
-		startPos.X.Offset + delta.X,
-		startPos.Y.Scale,
-		startPos.Y.Offset + delta.Y
-	)
+hub.Position = UDim2.new(
+startPos.X.Scale,
+startPos.X.Offset + delta.X,
+startPos.Y.Scale,
+startPos.Y.Offset + delta.Y
+)
 
-	hubShadow.Position = hub.Position
+hubShadow.Position = hub.Position
+end)
+
+--============================================================
+-- PREMIUM IDLE ANIMATIONS
+--============================================================
+
+task.spawn(function()
+while gui.Parent and not State.Unloaded do
+if State.Animations then
+topGradient.Offset = Vector2.new(
+math.sin(os.clock() * 0.35) * 0.22,
+0
+)
+
+logo.Rotation =
+math.sin(os.clock() * 1.2) * 1.5
+
+keyLogo.Rotation =
+math.sin(os.clock() * 1.1) * 1.5
+
+if openButton.Visible then
+openLogo.Rotation =
+math.sin(os.clock() * 2) * 3
+end
+
+for _, info in ipairs(keyParticles) do
+local object = info.Object
+
+if object and object.Parent then
+local x = object.Position.X.Scale
+local y = object.Position.Y.Scale
+
+y -= info.Speed
+
+if y < -0.05 then
+y = 1.05
+x = math.random()
+end
+
+object.Position = UDim2.fromScale(
+x + math.sin(os.clock() + info.Phase) * 0.0002,
+y
+)
+end
+end
+end
+
+RunService.RenderStepped:Wait()
+end
 end)
 
 --============================================================
@@ -2461,443 +2966,433 @@ end)
 --============================================================
 
 local function resetRevealBubbles()
-	for _, bubble in ipairs(revealBubbles) do
-		local size = math.random(6, 48)
+for _, bubble in ipairs(revealBubbles) do
+local size = math.random(6, 48)
 
-		bubble.Size = UDim2.fromOffset(size, size)
+bubble.Size = UDim2.fromOffset(size, size)
 
-		bubble.BackgroundTransparency =
-			math.random(92, 98) / 100
+bubble.BackgroundTransparency =
+math.random(92, 98) / 100
 
-		bubble.Position = UDim2.fromScale(
-			math.random(-10, 110) / 100,
-			1.02 + math.random(-10, 120) / 100
-		)
-	end
+bubble.Position = UDim2.fromScale(
+math.random(-10, 110) / 100,
+1.02 + math.random(-10, 120) / 100
+)
+end
 end
 
 local function runRevealSequence()
-	if State.Unloaded then
-		return
-	end
+if State.Unloaded then
+return
+end
 
-	revealOverlay.Visible = true
-	revealOverlay.BackgroundTransparency = 0
+revealOverlay.Visible = true
+revealOverlay.BackgroundTransparency = 0
 
-	resetRevealBubbles()
+resetRevealBubbles()
 
-	revealLogo.Position =
-		UDim2.new(0.5, -110, 1.3, 0)
+revealLogo.Position =
+UDim2.new(0.5, -110, 1.3, 0)
 
-	revealLogo.Size =
-		UDim2.fromOffset(220, 220)
+revealLogo.Size =
+UDim2.fromOffset(220, 220)
 
-	playBubbleSound()
+playBubbleSound()
 
-	for i, bubble in ipairs(revealBubbles) do
+for i, bubble in ipairs(revealBubbles) do
+local delayTime =
+math.random(0, 140) / 100
 
-		local delayTime =
-			math.random(0, 140) / 100
+local riseTime =
+math.random(100, 240) / 100
 
-		local riseTime =
-			math.random(100, 240) / 100
+task.delay(delayTime, function()
+if State.Unloaded or not bubble.Parent then
+return
+end
 
-		task.delay(delayTime, function()
+if i % 3 == 0 then
+playBubbleSound()
+end
 
-			if State.Unloaded or not bubble.Parent then
-				return
-			end
+local targetX =
+bubble.Position.X.Scale
++ math.random(-18, 18) / 100
 
-			if i % 3 == 0 then
-				playBubbleSound()
-			end
+tween(
+bubble,
+TweenInfo.new(
+riseTime,
+Enum.EasingStyle.Quad,
+Enum.EasingDirection.Out
+),
+{
+Position = UDim2.fromScale(
+targetX,
+-math.random(5, 35) / 100
+),
 
-			local targetX =
-				bubble.Position.X.Scale
-				+ math.random(-18, 18) / 100
+BackgroundTransparency = 1
+}
+)
+end)
+end
 
-			tween(
-				bubble,
-				TweenInfo.new(
-					riseTime,
-					Enum.EasingStyle.Quad,
-					Enum.EasingDirection.Out
-				),
-				{
-					Position = UDim2.fromScale(
-						targetX,
-						-math.random(5, 35) / 100
-					),
+task.wait(0.35)
 
-					BackgroundTransparency = 1
-				}
-			)
-		end)
-	end
+local logoRise = tween(
+revealLogo,
+TweenInfo.new(
+1.5,
+Enum.EasingStyle.Quint,
+Enum.EasingDirection.Out
+),
+{
+Position = UDim2.new(
+0.5,
+-110,
+0.5,
+-110
+)
+}
+)
 
-	task.wait(0.35)
+task.wait(0.2)
 
-	local logoRise = tween(
-		revealLogo,
-		TweenInfo.new(
-			1.5,
-			Enum.EasingStyle.Quint,
-			Enum.EasingDirection.Out
-		),
-		{
-			Position = UDim2.new(
-				0.5,
-				-110,
-				0.5,
-				-110
-			)
-		}
-	)
+playBubbleSound()
 
-	task.wait(0.2)
+if logoRise then
+logoRise.Completed:Wait()
+end
 
-	playBubbleSound()
+task.wait(0.15)
 
-	if logoRise then
-		logoRise.Completed:Wait()
-	end
+playBubbleSound()
 
-	task.wait(0.15)
+local expandTween = tween(
+revealLogo,
+TweenInfo.new(
+1.2,
+Enum.EasingStyle.Quint,
+Enum.EasingDirection.InOut
+),
+{
+Position = UDim2.new(
+0.5,
+-500,
+0.5,
+-500
+),
 
-	playBubbleSound()
+Size = UDim2.fromOffset(
+1000,
+1000
+)
+}
+)
 
-	local expandTween = tween(
-		revealLogo,
-		TweenInfo.new(
-			1.2,
-			Enum.EasingStyle.Quint,
-			Enum.EasingDirection.InOut
-		),
-		{
-			Position = UDim2.new(
-				0.5,
-				-500,
-				0.5,
-				-500
-			),
+tween(
+revealOverlay,
+TweenInfo.new(
+1.15,
+Enum.EasingStyle.Quad,
+Enum.EasingDirection.Out
+),
+{
+BackgroundTransparency = 1
+}
+)
 
-			Size = UDim2.fromOffset(
-				1000,
-				1000
-			)
-		}
-	)
+if expandTween then
+expandTween.Completed:Wait()
+end
 
-	tween(
-		revealOverlay,
-		TweenInfo.new(
-			1.15,
-			Enum.EasingStyle.Quad,
-			Enum.EasingDirection.Out
-		),
-		{
-			BackgroundTransparency = 1
-		}
-	)
+revealOverlay.Visible = false
 
-	if expandTween then
-		expandTween.Completed:Wait()
-	end
+hubShadow.Visible = true
+hub.Visible = true
 
-	revealOverlay.Visible = false
+hub.Size = UDim2.fromOffset(680, 420)
 
-	hubShadow.Visible = true
-	hub.Visible = true
+tween(
+hub,
+TweenInfo.new(
+0.4,
+Enum.EasingStyle.Back,
+Enum.EasingDirection.Out
+),
+{
+Size = normalSize
+}
+)
 
-	hub.Size = UDim2.fromOffset(680, 420)
+tween(
+hubShadow,
+TweenInfo.new(
+0.4,
+Enum.EasingStyle.Quad,
+Enum.EasingDirection.Out
+),
+{
+Size = UDim2.fromOffset(775, 485)
+}
+)
 
-	tween(
-		hub,
-		TweenInfo.new(
-			0.4,
-			Enum.EasingStyle.Back,
-			Enum.EasingDirection.Out
-		),
-		{
-			Size = normalSize
-		}
-	)
-
-	tween(
-		hubShadow,
-		TweenInfo.new(
-			0.4,
-			Enum.EasingStyle.Quad,
-			Enum.EasingDirection.Out
-		),
-		{
-			Size = UDim2.fromOffset(775, 485)
-		}
-	)
-
-	playSound(clickSound)
+playSound(clickSound)
 end
 
 --============================================================
--- LOADING SEQUENCE
+-- LOADING
 --============================================================
 
 local function runLoadingSequence()
-	if State.Unloaded then
-		return
-	end
+if State.Unloaded then
+return
+end
 
-	loadingOverlay.Visible = true
-	loadingOverlay.BackgroundTransparency = 0
+loadingOverlay.Visible = true
+loadingOverlay.BackgroundTransparency = 0
 
-	barFill.Size = UDim2.new(0, 0, 1, 0)
-	percent.Text = "0%"
+barFill.Size = UDim2.new(0, 0, 1, 0)
+percent.Text = "0%"
 
-	gearHolder.Rotation = 0
+gearHolder.Rotation = 0
 
-	local loadingTime = 5.5
-	local startTime = os.clock()
-	local lastStep = -1
+local loadingTime = 5.5
+local startTime = os.clock()
+local lastStep = -1
 
-	local progressConnection
+local progressConnection
 
-	progressConnection = RunService.RenderStepped:Connect(function()
+progressConnection = RunService.RenderStepped:Connect(function()
+if State.Unloaded or not loadingOverlay.Visible then
+if progressConnection then
+progressConnection:Disconnect()
+end
 
-		if State.Unloaded or not loadingOverlay.Visible then
+return
+end
 
-			if progressConnection then
-				progressConnection:Disconnect()
-			end
+local elapsed = os.clock() - startTime
 
-			return
-		end
+local alpha = math.clamp(
+elapsed / loadingTime,
+0,
+1
+)
 
-		local elapsed = os.clock() - startTime
+local currentPercent =
+math.floor(alpha * 100)
 
-		local alpha = math.clamp(
-			elapsed / loadingTime,
-			0,
-			1
-		)
+barFill.Size =
+UDim2.new(alpha, 0, 1, 0)
 
-		local currentPercent =
-			math.floor(alpha * 100)
+percent.Text =
+tostring(currentPercent) .. "%"
 
-		barFill.Size =
-			UDim2.new(alpha, 0, 1, 0)
+local step =
+math.floor(currentPercent / 4)
 
-		percent.Text =
-			tostring(currentPercent) .. "%"
+if step > lastStep then
+lastStep = step
 
-		local step =
-			math.floor(currentPercent / 4)
+if currentPercent > 0
+and currentPercent < 100 then
 
-		if step > lastStep then
+playBubbleSound()
 
-			lastStep = step
+if step % 5 == 0 then
+task.delay(0.07, playBubbleSound)
+end
+end
+end
 
-			if currentPercent > 0
-				and currentPercent < 100 then
+if alpha >= 1 then
+progressConnection:Disconnect()
+end
+end)
 
-				playBubbleSound()
+task.spawn(function()
+while loadingOverlay.Visible
+and not State.Unloaded do
 
-				if step % 5 == 0 then
-					task.delay(0.07, playBubbleSound)
-				end
-			end
-		end
+local rotationTween = tween(
+gearHolder,
+TweenInfo.new(
+1.25,
+Enum.EasingStyle.Linear
+),
+{
+Rotation =
+gearHolder.Rotation + 360
+}
+)
 
-		if alpha >= 1 then
-			progressConnection:Disconnect()
-		end
-	end)
+if rotationTween then
+rotationTween.Completed:Wait()
+else
+break
+end
+end
+end)
 
-	task.spawn(function()
+task.wait(loadingTime + 0.2)
 
-		while loadingOverlay.Visible
-			and not State.Unloaded do
+if State.Unloaded then
+return
+end
 
-			local rotationTween = tween(
-				gearHolder,
-				TweenInfo.new(
-					1.25,
-					Enum.EasingStyle.Linear
-				),
-				{
-					Rotation =
-						gearHolder.Rotation + 360
-				}
-			)
+percent.Text = "100%"
 
-			if rotationTween then
-				rotationTween.Completed:Wait()
-			else
-				break
-			end
-		end
-	end)
+playBubbleSound()
+playBubbleSound()
 
-	task.wait(loadingTime + 0.2)
+task.wait(0.35)
 
-	if State.Unloaded then
-		return
-	end
+loadingOverlay.Visible = false
 
-	percent.Text = "100%"
-
-	playBubbleSound()
-	playBubbleSound()
-
-	task.wait(0.35)
-
-	loadingOverlay.Visible = false
-
-	runRevealSequence()
+runRevealSequence()
 end
 
 --============================================================
--- KEY SYSTEM - FIXED
+-- KEY SYSTEM
 --============================================================
 
 local unlocked = false
 
 local function shakeKeyCard()
-	local original = keyCard.Position
+local original = keyCard.Position
 
-	for i = 1, 6 do
+for i = 1, 6 do
+local direction =
+i % 2 == 0 and 8 or -8
 
-		local direction =
-			i % 2 == 0 and 8 or -8
+local t = tween(
+keyCard,
+TweenInfo.new(0.035),
+{
+Position =
+original
++ UDim2.fromOffset(
+direction,
+0
+)
+}
+)
 
-		local t = tween(
-			keyCard,
-			TweenInfo.new(0.035),
-			{
-				Position =
-					original
-					+ UDim2.fromOffset(
-						direction,
-						0
-					)
-			}
-		)
+if t then
+t.Completed:Wait()
+end
+end
 
-		if t then
-			t.Completed:Wait()
-		end
-	end
-
-	tween(
-		keyCard,
-		TweenInfo.new(0.08),
-		{
-			Position = original
-		}
-	)
+tween(
+keyCard,
+TweenInfo.new(0.08),
+{
+Position = original
+}
+)
 end
 
 local function attemptUnlock()
-	if unlocked or State.Unloaded then
-		return
-	end
+if unlocked or State.Unloaded then
+return
+end
 
-	playSound(clickSound)
+playSound(clickSound)
 
-	local enteredKey = tostring(keyInput.Text or "")
+local enteredKey = tostring(keyInput.Text or "")
 
-	enteredKey = enteredKey:gsub("^%s+", "")
-	enteredKey = enteredKey:gsub("%s+$", "")
-	enteredKey = string.lower(enteredKey)
+enteredKey = enteredKey:gsub("^%s+", "")
+enteredKey = enteredKey:gsub("%s+`$", "")
+enteredKey = string.lower(enteredKey)
 
-	print("[BubblesHook] Key entered:", enteredKey)
+print("[BubblesHook] Key entered:", enteredKey)
 
-	if enteredKey == "bubbles" then
+if enteredKey == "bubbles" then
+unlocked = true
+State.Unlocked = true
 
-		unlocked = true
-		State.Unlocked = true
+statusLabel.Text = "ACCESS GRANTED"
+statusLabel.TextColor3 = State.AccentColor
 
-		statusLabel.Text = "ACCESS GRANTED"
-		statusLabel.TextColor3 = State.AccentColor
+keyInput.TextEditable = false
+unlockButton.Active = false
 
-		keyInput.TextEditable = false
-		unlockButton.Active = false
+pulse(keyCard, 5, 0.15)
 
-		task.wait(0.25)
+task.wait(0.25)
 
-		tween(
-			keyOverlay,
-			TweenInfo.new(
-				0.5,
-				Enum.EasingStyle.Quad,
-				Enum.EasingDirection.Out
-			),
-			{
-				BackgroundTransparency = 1
-			}
-		)
+tween(
+keyOverlay,
+TweenInfo.new(
+0.5,
+Enum.EasingStyle.Quad,
+Enum.EasingDirection.Out
+),
+{
+BackgroundTransparency = 1
+}
+)
 
-		tween(
-			keyCard,
-			TweenInfo.new(
-				0.45,
-				Enum.EasingStyle.Quad,
-				Enum.EasingDirection.In
-			),
-			{
-				Position = UDim2.fromScale(
-					0.5,
-					0.54
-				)
-			}
-		)
+tween(
+keyCard,
+TweenInfo.new(
+0.45,
+Enum.EasingStyle.Quad,
+Enum.EasingDirection.In
+),
+{
+Position = UDim2.fromScale(
+0.5,
+0.54
+)
+}
+)
 
-		task.wait(0.5)
+task.wait(0.5)
 
-		if State.Unloaded then
-			return
-		end
+if State.Unloaded then
+return
+end
 
-		keyOverlay.Visible = false
+keyOverlay.Visible = false
 
-		runLoadingSequence()
+runLoadingSequence()
 
-	else
+else
+statusLabel.Text = "INVALID KEY"
+statusLabel.TextColor3 =
+Color3.fromRGB(
+210,
+150,
+150
+)
 
-		statusLabel.Text = "INVALID KEY"
-		statusLabel.TextColor3 =
-			Color3.fromRGB(
-				210,
-				150,
-				150
-			)
+playBubbleSound()
+shakeKeyCard()
 
-		playBubbleSound()
+task.wait(0.4)
 
-		shakeKeyCard()
-
-		task.wait(0.4)
-
-		if not State.Unloaded and not unlocked then
-			statusLabel.Text = "WAITING FOR KEY"
-			statusLabel.TextColor3 = GREY
-		end
-	end
+if not State.Unloaded and not unlocked then
+statusLabel.Text = "WAITING FOR KEY"
+statusLabel.TextColor3 = GREY
+end
+end
 end
 
 connect(
-	unlockButton.Activated,
-	attemptUnlock
+unlockButton.Activated,
+attemptUnlock
 )
 
 connect(
-	keyInput.FocusLost,
-	function(enterPressed)
-
-		if enterPressed and not unlocked then
-			attemptUnlock()
-		end
-
-	end
+keyInput.FocusLost,
+function(enterPressed)
+if enterPressed and not unlocked then
+attemptUnlock()
+end
+end
 )
 
 --============================================================
@@ -2905,60 +3400,58 @@ connect(
 --============================================================
 
 local function unload()
-	if State.Unloaded then
-		return
-	end
+if State.Unloaded then
+return
+end
 
-	State.Unloaded = true
+State.Unloaded = true
 
-	stopSpectating()
+stopSpectating()
 
-	disconnectAll()
+disconnectAll()
 
-	for _, sound in ipairs(sfxFolder:GetChildren()) do
-		if sound:IsA("Sound") then
-			sound:Stop()
-		end
-	end
+for _, sound in ipairs(sfxFolder:GetChildren()) do
+if sound:IsA("Sound") then
+sound:Stop()
+end
+end
 
-	local fade = Instance.new("Frame")
+local fade = Instance.new("Frame")
 
-	fade.BackgroundColor3 = BLACK
-	fade.BackgroundTransparency = 1
-	fade.Size = UDim2.fromScale(1, 1)
-	fade.ZIndex = 9999
-	fade.Parent = gui
+fade.BackgroundColor3 = BLACK
+fade.BackgroundTransparency = 1
+fade.Size = UDim2.fromScale(1, 1)
+fade.ZIndex = 9999
+fade.Parent = gui
 
-	tween(
-		fade,
-		TweenInfo.new(
-			0.3,
-			Enum.EasingStyle.Quad
-		),
-		{
-			BackgroundTransparency = 0
-		}
-	)
+tween(
+fade,
+TweenInfo.new(
+0.3,
+Enum.EasingStyle.Quad
+),
+{
+BackgroundTransparency = 0
+}
+)
 
-	task.delay(0.32, function()
+task.delay(0.32, function()
+if gui and gui.Parent then
+gui:Destroy()
+end
 
-		if gui and gui.Parent then
-			gui:Destroy()
-		end
-
-		if sfxFolder and sfxFolder.Parent then
-			sfxFolder:Destroy()
-		end
-
-	end)
+if sfxFolder and sfxFolder.Parent then
+sfxFolder:Destroy()
+end
+end)
 end
 
 connect(
-	navUnload.Activated,
-	function()
-		playSound(clickSound)
-		unload()
-	end
+navUnload.Activated,
+function()
+playSound(clickSound)
+unload()
+end
 )
 
 --============================================================
@@ -2966,28 +3459,27 @@ connect(
 --============================================================
 
 for name, page in pairs(pages) do
-	page.Visible = name == "Home"
+page.Visible = name == "Home"
 end
 
 for name, data in pairs(tabs) do
+local selected = name == "Home"
 
-	local selected = name == "Home"
+data.Button:SetAttribute(
+"Selected",
+selected
+)
 
-	data.Button:SetAttribute(
-		"Selected",
-		selected
-	)
+data.Indicator.Visible = selected
 
-	data.Indicator.Visible = selected
+data.Button.BackgroundColor3 =
+selected and PANEL3 or DARK
 
-	data.Button.BackgroundColor3 =
-		selected and PANEL3 or DARK
+data.Icon.TextColor3 =
+selected and State.AccentColor or LIGHTGREY
 
-	data.Icon.TextColor3 =
-		selected and State.AccentColor or LIGHTGREY
-
-	data.Text.TextColor3 =
-		selected and WHITE or LIGHTGREY
+data.Text.TextColor3 =
+selected and WHITE or LIGHTGREY
 end
 
 State.CurrentTab = "Hub"
@@ -3003,8 +3495,9 @@ keyOverlay.Visible = true
 loadingOverlay.Visible = false
 revealOverlay.Visible = false
 
-print("====================================")
-print("BubblesHook V2 started")
+print("")
+print("BubblesHook V2 Premium started")
 print("Key system ready")
 print("Expected key: bubbles")
-print("====================================")
+print("Premium UI effects enabled")
+print("")
