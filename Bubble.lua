@@ -1,8 +1,7 @@
 --//============================================================
---// BUBBLESHOOK V2
---// Full UI + Key Screen + Loading + Bubble Reveal
---// Fixed Top Navigation + Console + Settings + Player List
---// Color Wheel + Spectate + Bottom Right Open Button
+--// BUBBLESHOOK V2 - FIXED
+--// Full UI / Key / Loading / Bubble Reveal / Console
+--// Appearance / Players / Spectate / Fixed Top Navigation
 --//============================================================
 
 local Players = game:GetService("Players")
@@ -12,11 +11,14 @@ local SoundService = game:GetService("SoundService")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
+if not player then
+	return
+end
+
 local playerGui = player:WaitForChild("PlayerGui")
-local camera = workspace.CurrentCamera
 
 --============================================================
--- CLEAN OLD UI
+-- CLEANUP OLD VERSION
 --============================================================
 
 local oldGui = playerGui:FindFirstChild("BubblesHook")
@@ -63,10 +65,6 @@ local State = {
 
 	BaseColor = PANEL,
 	AccentColor = ACCENT,
-	PanelColor = PANEL2,
-
-	Transparency = 0,
-	UIScale = 1,
 
 	Animations = true,
 	Bubbles = true,
@@ -78,43 +76,25 @@ local State = {
 	ConsoleHistory = {},
 	ConsoleIndex = 0,
 
-	HubVisible = false,
-	NavVisible = true,
-
 	Spectating = false,
 }
 
 local Connections = {}
-local DynamicObjects = {}
-
---============================================================
--- CONNECTION HELPERS
---============================================================
 
 local function connect(signal, callback)
-	local connection = signal:Connect(callback)
-	table.insert(Connections, connection)
-	return connection
+	local c = signal:Connect(callback)
+	table.insert(Connections, c)
+	return c
 end
 
 local function disconnectAll()
-	for _, connection in ipairs(Connections) do
-		if connection and connection.Connected then
-			connection:Disconnect()
+	for _, c in ipairs(Connections) do
+		if c and c.Connected then
+			c:Disconnect()
 		end
 	end
 
 	table.clear(Connections)
-end
-
-local function destroyDynamic()
-	for _, object in ipairs(DynamicObjects) do
-		if object and object.Parent then
-			object:Destroy()
-		end
-	end
-
-	table.clear(DynamicObjects)
 end
 
 --============================================================
@@ -145,7 +125,6 @@ local function stroke(object, color, thickness, transparency)
 	s.Color = color or BORDER
 	s.Thickness = thickness or 1
 	s.Transparency = transparency or 0
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	s.Parent = object
 	return s
 end
@@ -161,6 +140,10 @@ local function tween(object, info, properties)
 end
 
 local function quickTween(object, duration, properties)
+	if not object or not object.Parent then
+		return
+	end
+
 	if not State.Animations then
 		for property, value in pairs(properties) do
 			object[property] = value
@@ -179,7 +162,7 @@ local function quickTween(object, duration, properties)
 	)
 end
 
-local function label(parent, text, size, color, font)
+local function makeLabel(parent, text, size, color, font)
 	local l = Instance.new("TextLabel")
 	l.BackgroundTransparency = 1
 	l.Text = text
@@ -190,71 +173,23 @@ local function label(parent, text, size, color, font)
 	return l
 end
 
-local function staticGradient(object, colorA, colorB)
-	local gradient = Instance.new("UIGradient")
-	gradient.Rotation = 35
+local function gradient(object)
+	local g = Instance.new("UIGradient")
 
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(
-			0,
-			colorA or Color3.fromRGB(245, 247, 250)
-		),
+	g.Rotation = 35
 
-		ColorSequenceKeypoint.new(
-			0.5,
-			colorB or Color3.fromRGB(105, 113, 130)
-		),
-
-		ColorSequenceKeypoint.new(
-			1,
-			colorA or Color3.fromRGB(235, 238, 244)
-		)
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, WHITE),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(110, 118, 135)),
+		ColorSequenceKeypoint.new(1, WHITE)
 	})
 
-	gradient.Parent = object
-	return gradient
-end
-
-local function movingGradient(object, duration)
-	local gradient = Instance.new("UIGradient")
-
-	gradient.Rotation = 35
-
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(245, 247, 250)),
-		ColorSequenceKeypoint.new(0.35, Color3.fromRGB(155, 163, 180)),
-		ColorSequenceKeypoint.new(0.65, Color3.fromRGB(80, 88, 105)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(240, 242, 246))
-	})
-
-	gradient.Offset = Vector2.new(-1, 0)
-	gradient.Parent = object
-
-	task.spawn(function()
-		while gradient.Parent and not State.Unloaded do
-			gradient.Offset = Vector2.new(-1, 0)
-
-			local t = TweenService:Create(
-				gradient,
-				TweenInfo.new(
-					duration or 3,
-					Enum.EasingStyle.Linear
-				),
-				{
-					Offset = Vector2.new(1, 0)
-				}
-			)
-
-			t:Play()
-			t.Completed:Wait()
-		end
-	end)
-
-	return gradient
+	g.Parent = object
+	return g
 end
 
 --============================================================
--- SOUND SYSTEM
+-- SOUND
 --============================================================
 
 local sfxFolder = Instance.new("Folder")
@@ -267,39 +202,21 @@ local SOUND_IDS = {
 	Click = "rbxassetid://9083627113"
 }
 
-local function createSound(name, id, volume)
-	local sound = Instance.new("Sound")
-	sound.Name = name
-	sound.SoundId = id
-	sound.Volume = volume
-	sound.Parent = sfxFolder
-	return sound
+local function makeSound(name, id, volume)
+	local s = Instance.new("Sound")
+	s.Name = name
+	s.SoundId = id
+	s.Volume = volume
+	s.Parent = sfxFolder
+	return s
 end
 
-local hoverSound = createSound(
-	"Hover",
-	SOUND_IDS.Hover,
-	0.08
-)
-
-local clickSound = createSound(
-	"Click",
-	SOUND_IDS.Click,
-	0.12
-)
-
-local bubbleTemplate = createSound(
-	"Bubble",
-	SOUND_IDS.Bubble,
-	0.05
-)
+local hoverSound = makeSound("Hover", SOUND_IDS.Hover, 0.08)
+local clickSound = makeSound("Click", SOUND_IDS.Click, 0.12)
+local bubbleTemplate = makeSound("Bubble", SOUND_IDS.Bubble, 0.05)
 
 local function playSound(sound)
-	if not State.SFX then
-		return
-	end
-
-	if sound then
+	if State.SFX and sound then
 		sound:Stop()
 		sound:Play()
 	end
@@ -319,13 +236,7 @@ local function playBubbleSound()
 
 	sound:Play()
 
-	sound.Ended:Connect(function()
-		if sound and sound.Parent then
-			sound:Destroy()
-		end
-	end)
-
-	task.delay(4, function()
+	task.delay(3, function()
 		if sound and sound.Parent then
 			sound:Destroy()
 		end
@@ -333,7 +244,7 @@ local function playBubbleSound()
 end
 
 --============================================================
--- BUBBLE LOGO
+-- BUBBLE CREATION
 --============================================================
 
 local function createBubble(parent, x, y, w, h)
@@ -343,36 +254,21 @@ local function createBubble(parent, x, y, w, h)
 	bubble.Position = UDim2.fromScale(x, y)
 	bubble.Size = UDim2.fromScale(w, h)
 	bubble.BorderSizePixel = 0
-
 	bubble.Parent = parent
 
 	corner(bubble, 999)
 	stroke(bubble, WHITE, 1, 0.15)
-	movingGradient(bubble, 3)
+	gradient(bubble)
 
 	local highlight = Instance.new("Frame")
-
 	highlight.BackgroundColor3 = WHITE
 	highlight.BackgroundTransparency = 0.05
 	highlight.Position = UDim2.fromScale(0.18, 0.13)
 	highlight.Size = UDim2.fromScale(0.30, 0.19)
 	highlight.BorderSizePixel = 0
-
 	highlight.Parent = bubble
 
 	corner(highlight, 999)
-
-	local small = Instance.new("Frame")
-
-	small.BackgroundColor3 = WHITE
-	small.BackgroundTransparency = 0.1
-	small.Position = UDim2.fromScale(0.57, 0.18)
-	small.Size = UDim2.fromScale(0.09, 0.09)
-	small.BorderSizePixel = 0
-
-	small.Parent = bubble
-
-	corner(small, 999)
 
 	return bubble
 end
@@ -392,44 +288,11 @@ local function createLogo(parent, position, size)
 	return logo
 end
 
-local function createStaticBubble(parent, x, y, w, h)
-	local bubble = Instance.new("Frame")
-
-	bubble.BackgroundColor3 = WHITE
-	bubble.Position = UDim2.fromScale(x, y)
-	bubble.Size = UDim2.fromScale(w, h)
-	bubble.BorderSizePixel = 0
-
-	bubble.Parent = parent
-
-	corner(bubble, 999)
-	stroke(bubble, WHITE, 1, 0.15)
-	staticGradient(bubble)
-
-	return bubble
-end
-
-local function createStaticLogo(parent, position, size)
-	local logo = Instance.new("Frame")
-
-	logo.BackgroundTransparency = 1
-	logo.Position = position
-	logo.Size = size
-	logo.Parent = parent
-
-	createStaticBubble(logo, 0.12, 0.18, 0.57, 0.57)
-	createStaticBubble(logo, 0.53, 0.03, 0.28, 0.28)
-	createStaticBubble(logo, 0.62, 0.59, 0.22, 0.22)
-
-	return logo
-end
-
 --============================================================
--- KEY OVERLAY
+-- KEY SCREEN
 --============================================================
 
 local keyOverlay = Instance.new("Frame")
-
 keyOverlay.Name = "KeyOverlay"
 keyOverlay.BackgroundColor3 = BLACK
 keyOverlay.Size = UDim2.fromScale(1, 1)
@@ -438,17 +301,15 @@ keyOverlay.ZIndex = 100
 keyOverlay.Parent = gui
 
 local keyGradient = Instance.new("UIGradient")
-
 keyGradient.Rotation = 90
-
 keyGradient.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(3, 4, 6)),
 	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(11, 12, 16)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 4, 6))
 })
-
 keyGradient.Parent = keyOverlay
 
+-- Background bubbles
 for i = 1, 70 do
 	local b = Instance.new("Frame")
 
@@ -456,10 +317,8 @@ for i = 1, 70 do
 	b.BackgroundTransparency = math.random(95, 99) / 100
 	b.BorderSizePixel = 0
 
-	b.Size = UDim2.fromOffset(
-		math.random(4, 17),
-		math.random(4, 17)
-	)
+	local s = math.random(4, 17)
+	b.Size = UDim2.fromOffset(s, s)
 
 	b.Position = UDim2.fromScale(
 		math.random(),
@@ -467,12 +326,10 @@ for i = 1, 70 do
 	)
 
 	b.Parent = keyOverlay
-
 	corner(b, 999)
 end
 
 local keyCard = Instance.new("Frame")
-
 keyCard.BackgroundColor3 = PANEL
 keyCard.Size = UDim2.fromOffset(410, 275)
 keyCard.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -484,15 +341,14 @@ keyCard.Parent = keyOverlay
 corner(keyCard, 8)
 stroke(keyCard, BORDER, 1, 0)
 
-local keyLogo = createStaticLogo(
+local keyLogo = createLogo(
 	keyCard,
 	UDim2.new(0.5, -32, 0, 14),
 	UDim2.fromOffset(64, 64)
 )
-
 keyLogo.ZIndex = 102
 
-local keyTitle = label(
+local keyTitle = makeLabel(
 	keyCard,
 	"ACCESS",
 	22,
@@ -504,12 +360,11 @@ keyTitle.Size = UDim2.new(1, 0, 0, 30)
 keyTitle.Position = UDim2.fromOffset(0, 76)
 keyTitle.ZIndex = 102
 
-local keySub = label(
+local keySub = makeLabel(
 	keyCard,
 	"Enter the access key to continue",
 	11,
-	LIGHTGREY,
-	Enum.Font.Gotham
+	LIGHTGREY
 )
 
 keySub.Size = UDim2.new(1, 0, 0, 20)
@@ -517,7 +372,6 @@ keySub.Position = UDim2.fromOffset(0, 106)
 keySub.ZIndex = 102
 
 local keyInput = Instance.new("TextBox")
-
 keyInput.BackgroundColor3 = PANEL2
 keyInput.TextColor3 = WHITE
 keyInput.PlaceholderColor3 = GREY
@@ -526,10 +380,8 @@ keyInput.Text = ""
 keyInput.ClearTextOnFocus = false
 keyInput.TextSize = 13
 keyInput.Font = Enum.Font.Gotham
-
 keyInput.Size = UDim2.new(1, -50, 0, 42)
 keyInput.Position = UDim2.fromOffset(25, 138)
-
 keyInput.BorderSizePixel = 0
 keyInput.ZIndex = 102
 keyInput.Parent = keyCard
@@ -538,24 +390,21 @@ corner(keyInput, 5)
 stroke(keyInput, BORDER_SOFT, 1, 0)
 
 local unlockButton = Instance.new("TextButton")
-
 unlockButton.BackgroundColor3 = WHITE
 unlockButton.TextColor3 = Color3.fromRGB(15, 16, 19)
 unlockButton.Text = "UNLOCK"
 unlockButton.TextSize = 12
 unlockButton.Font = Enum.Font.GothamBold
-
 unlockButton.Size = UDim2.new(1, -50, 0, 40)
 unlockButton.Position = UDim2.fromOffset(25, 188)
-
 unlockButton.BorderSizePixel = 0
-unlockButton.ZIndex = 102
 unlockButton.AutoButtonColor = false
+unlockButton.ZIndex = 102
 unlockButton.Parent = keyCard
 
 corner(unlockButton, 5)
 
-local statusLabel = label(
+local statusLabel = makeLabel(
 	keyCard,
 	"WAITING FOR KEY",
 	9,
@@ -567,34 +416,25 @@ statusLabel.Size = UDim2.new(1, 0, 0, 20)
 statusLabel.Position = UDim2.fromOffset(0, 239)
 statusLabel.ZIndex = 102
 
+-- Button hover
 connect(unlockButton.MouseEnter, function()
-	quickTween(
-		unlockButton,
-		0.15,
-		{
-			BackgroundColor3 = SILVER
-		}
-	)
-
+	quickTween(unlockButton, 0.15, {
+		BackgroundColor3 = SILVER
+	})
 	playSound(hoverSound)
 end)
 
 connect(unlockButton.MouseLeave, function()
-	quickTween(
-		unlockButton,
-		0.15,
-		{
-			BackgroundColor3 = WHITE
-		}
-	)
+	quickTween(unlockButton, 0.15, {
+		BackgroundColor3 = WHITE
+	})
 end)
 
 --============================================================
--- LOADING OVERLAY
+-- LOADING SCREEN
 --============================================================
 
 local loadingOverlay = Instance.new("Frame")
-
 loadingOverlay.Name = "LoadingOverlay"
 loadingOverlay.BackgroundColor3 = BLACK
 loadingOverlay.Size = UDim2.fromScale(1, 1)
@@ -604,41 +444,15 @@ loadingOverlay.Visible = false
 loadingOverlay.Parent = gui
 
 local loadingGradient = Instance.new("UIGradient")
-
 loadingGradient.Rotation = 90
-
 loadingGradient.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(3, 4, 6)),
 	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(11, 12, 16)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 4, 6))
 })
-
 loadingGradient.Parent = loadingOverlay
 
-for i = 1, 55 do
-	local b = Instance.new("Frame")
-
-	b.BackgroundColor3 = WHITE
-	b.BackgroundTransparency = math.random(95, 99) / 100
-	b.BorderSizePixel = 0
-
-	b.Size = UDim2.fromOffset(
-		math.random(4, 14),
-		math.random(4, 14)
-	)
-
-	b.Position = UDim2.fromScale(
-		math.random(),
-		math.random()
-	)
-
-	b.Parent = loadingOverlay
-
-	corner(b, 999)
-end
-
 local loadingContent = Instance.new("Frame")
-
 loadingContent.BackgroundTransparency = 1
 loadingContent.Size = UDim2.fromOffset(470, 300)
 loadingContent.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -647,7 +461,6 @@ loadingContent.ZIndex = 121
 loadingContent.Parent = loadingOverlay
 
 local gearHolder = Instance.new("Frame")
-
 gearHolder.BackgroundTransparency = 1
 gearHolder.Size = UDim2.fromOffset(60, 60)
 gearHolder.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -656,30 +469,26 @@ gearHolder.ZIndex = 122
 gearHolder.Parent = loadingContent
 
 local gearOuter = Instance.new("Frame")
-
 gearOuter.BackgroundColor3 = WHITE
 gearOuter.Size = UDim2.fromOffset(48, 48)
 gearOuter.AnchorPoint = Vector2.new(0.5, 0.5)
 gearOuter.Position = UDim2.fromScale(0.5, 0.5)
 gearOuter.BorderSizePixel = 0
-gearOuter.ZIndex = 123
 gearOuter.Parent = gearHolder
 
 corner(gearOuter, 999)
 
 local gearHole = Instance.new("Frame")
-
 gearHole.BackgroundColor3 = DARK
 gearHole.Size = UDim2.fromOffset(18, 18)
 gearHole.AnchorPoint = Vector2.new(0.5, 0.5)
 gearHole.Position = UDim2.fromScale(0.5, 0.5)
 gearHole.BorderSizePixel = 0
-gearHole.ZIndex = 124
 gearHole.Parent = gearHolder
 
 corner(gearHole, 999)
 
-local loadTitle = label(
+local loadTitle = makeLabel(
 	loadingContent,
 	"INITIALIZING",
 	21,
@@ -689,45 +498,38 @@ local loadTitle = label(
 
 loadTitle.Size = UDim2.new(1, 0, 0, 30)
 loadTitle.Position = UDim2.fromOffset(0, 88)
-loadTitle.ZIndex = 122
 
-local loadSub = label(
+local loadSub = makeLabel(
 	loadingContent,
 	"Preparing BubblesHook",
 	11,
-	LIGHTGREY,
-	Enum.Font.Gotham
+	LIGHTGREY
 )
 
 loadSub.Size = UDim2.new(1, 0, 0, 20)
 loadSub.Position = UDim2.fromOffset(0, 119)
-loadSub.ZIndex = 122
 
 local bar = Instance.new("Frame")
-
 bar.BackgroundColor3 = PANEL3
 bar.Size = UDim2.fromOffset(380, 7)
 bar.AnchorPoint = Vector2.new(0.5, 0)
 bar.Position = UDim2.fromScale(0.5, 0.62)
 bar.BorderSizePixel = 0
-bar.ZIndex = 122
 bar.Parent = loadingContent
 
 corner(bar, 4)
-stroke(bar, BORDER_SOFT, 1, 0)
+stroke(bar, BORDER_SOFT)
 
 local barFill = Instance.new("Frame")
-
 barFill.BackgroundColor3 = WHITE
 barFill.Size = UDim2.new(0, 0, 1, 0)
 barFill.BorderSizePixel = 0
-bar.ZIndex = 123
-bar.Parent = bar
+barFill.Parent = bar
 
 corner(barFill, 4)
-staticGradient(barFill)
+gradient(barFill)
 
-local percent = label(
+local percent = makeLabel(
 	loadingContent,
 	"0%",
 	10,
@@ -737,14 +539,12 @@ local percent = label(
 
 percent.Size = UDim2.new(1, 0, 0, 20)
 percent.Position = UDim2.fromOffset(0, 177)
-percent.ZIndex = 122
 
 --============================================================
--- REVEAL OVERLAY
+-- REVEAL
 --============================================================
 
 local revealOverlay = Instance.new("Frame")
-
 revealOverlay.Name = "RevealOverlay"
 revealOverlay.BackgroundColor3 = BLACK
 revealOverlay.Size = UDim2.fromScale(1, 1)
@@ -753,21 +553,9 @@ revealOverlay.ZIndex = 140
 revealOverlay.Visible = false
 revealOverlay.Parent = gui
 
-local revealGradient = Instance.new("UIGradient")
-
-revealGradient.Rotation = 90
-
-revealGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(2, 3, 5)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(9, 10, 14)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(2, 3, 5))
-})
-
-revealGradient.Parent = revealOverlay
-
 local revealBubbles = {}
 
--- Much larger bubble field
+-- 180 bubbles
 for i = 1, 180 do
 	local bubble = Instance.new("Frame")
 
@@ -799,7 +587,7 @@ for i = 1, 180 do
 	table.insert(revealBubbles, bubble)
 end
 
-local revealLogo = createStaticLogo(
+local revealLogo = createLogo(
 	revealOverlay,
 	UDim2.new(0.5, -110, 1.3, 0),
 	UDim2.fromOffset(220, 220)
@@ -812,9 +600,7 @@ revealLogo.ZIndex = 145
 --============================================================
 
 local hubShadow = Instance.new("Frame")
-
-hubShadow.Name = "HubShadow"
-hubShadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+hubShadow.BackgroundColor3 = Color3.new(0, 0, 0)
 hubShadow.BackgroundTransparency = 0.5
 hubShadow.Size = UDim2.fromOffset(775, 485)
 hubShadow.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -827,9 +613,8 @@ hubShadow.Parent = gui
 corner(hubShadow, 9)
 
 local hub = Instance.new("Frame")
-
 hub.Name = "Hub"
-hub.BackgroundColor3 = State.BaseColor
+hub.BackgroundColor3 = PANEL
 hub.Size = UDim2.fromOffset(760, 470)
 hub.AnchorPoint = Vector2.new(0.5, 0.5)
 hub.Position = UDim2.fromScale(0.5, 0.5)
@@ -840,18 +625,16 @@ hub.ZIndex = 2
 hub.Parent = gui
 
 corner(hub, 8)
-stroke(hub, BORDER, 1, 0)
+stroke(hub, BORDER)
 
 --============================================================
--- TOP BAR
+-- HUB TOP BAR
 --============================================================
 
 local topBar = Instance.new("Frame")
-
 topBar.BackgroundColor3 = DARK
 topBar.Size = UDim2.new(1, 0, 0, 68)
 topBar.BorderSizePixel = 0
-topBar.ZIndex = 3
 topBar.Parent = hub
 
 local logo = createLogo(
@@ -860,9 +643,7 @@ local logo = createLogo(
 	UDim2.fromOffset(40, 40)
 )
 
-logo.ZIndex = 4
-
-local title = label(
+local title = makeLabel(
 	topBar,
 	"BUBBLESHOOK",
 	15,
@@ -873,9 +654,8 @@ local title = label(
 title.Position = UDim2.fromOffset(72, 17)
 title.Size = UDim2.fromOffset(180, 20)
 title.TextXAlignment = Enum.TextXAlignment.Left
-title.ZIndex = 4
 
-local subtitle = label(
+local subtitle = makeLabel(
 	topBar,
 	"INTERFACE",
 	9,
@@ -886,13 +666,12 @@ local subtitle = label(
 subtitle.Position = UDim2.fromOffset(72, 38)
 subtitle.Size = UDim2.fromOffset(100, 15)
 subtitle.TextXAlignment = Enum.TextXAlignment.Left
-subtitle.ZIndex = 4
 
 --============================================================
 -- WINDOW BUTTONS
 --============================================================
 
-local function createWindowButton(text, x)
+local function windowButton(text, x)
 	local button = Instance.new("TextButton")
 
 	button.BackgroundColor3 = DARK
@@ -904,7 +683,6 @@ local function createWindowButton(text, x)
 	button.Position = UDim2.new(1, x, 0, 13)
 	button.BorderSizePixel = 0
 	button.AutoButtonColor = false
-	button.ZIndex = 5
 	button.Parent = topBar
 
 	corner(button, 5)
@@ -928,64 +706,53 @@ local function createWindowButton(text, x)
 	return button
 end
 
-local closeButton = createWindowButton("×", -52)
-local minButton = createWindowButton("−", -100)
-local maxButton = createWindowButton("□", -148)
+local closeButton = windowButton("×", -52)
+local minButton = windowButton("−", -100)
+local maxButton = windowButton("□", -148)
 
 --============================================================
 -- SIDEBAR
 --============================================================
 
 local sidebar = Instance.new("Frame")
-
 sidebar.BackgroundColor3 = DARK
 sidebar.Size = UDim2.new(0, 176, 1, -68)
 sidebar.Position = UDim2.fromOffset(0, 68)
 sidebar.BorderSizePixel = 0
-sidebar.ZIndex = 3
 sidebar.Parent = hub
 
 local sidebarLine = Instance.new("Frame")
-
 sidebarLine.BackgroundColor3 = BORDER_SOFT
 sidebarLine.Size = UDim2.new(0, 1, 1, 0)
 sidebarLine.Position = UDim2.new(1, -1, 0, 0)
 sidebarLine.BorderSizePixel = 0
-sidebarLine.ZIndex = 4
 sidebarLine.Parent = sidebar
 
 local tabsHolder = Instance.new("Frame")
-
 tabsHolder.BackgroundTransparency = 1
 tabsHolder.Size = UDim2.new(1, -20, 0, 180)
 tabsHolder.Position = UDim2.fromOffset(10, 18)
-tabsHolder.ZIndex = 4
 tabsHolder.Parent = sidebar
 
 local tabLayout = Instance.new("UIListLayout")
-
 tabLayout.Padding = UDim.new(0, 5)
-tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 tabLayout.Parent = tabsHolder
 
 local tabs = {}
 
-local function createTab(name, icon, order)
+local function createTab(name, icon)
 	local button = Instance.new("TextButton")
 
-	button.Name = name
 	button.BackgroundColor3 = DARK
 	button.Text = ""
 	button.Size = UDim2.new(1, 0, 0, 40)
 	button.BorderSizePixel = 0
 	button.AutoButtonColor = false
-	button.LayoutOrder = order
-	button.ZIndex = 5
 	button.Parent = tabsHolder
 
 	corner(button, 4)
 
-	local iconLabel = label(
+	local iconLabel = makeLabel(
 		button,
 		icon,
 		14,
@@ -995,9 +762,8 @@ local function createTab(name, icon, order)
 
 	iconLabel.Position = UDim2.fromOffset(12, 0)
 	iconLabel.Size = UDim2.fromOffset(22, 40)
-	iconLabel.ZIndex = 6
 
-	local textLabel = label(
+	local textLabel = makeLabel(
 		button,
 		name,
 		11,
@@ -1008,16 +774,13 @@ local function createTab(name, icon, order)
 	textLabel.Position = UDim2.fromOffset(39, 0)
 	textLabel.Size = UDim2.new(1, -45, 1, 0)
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
-	textLabel.ZIndex = 6
 
 	local indicator = Instance.new("Frame")
-
-	indicator.BackgroundColor3 = State.AccentColor
+	indicator.BackgroundColor3 = ACCENT
 	indicator.Size = UDim2.fromOffset(2, 18)
 	indicator.Position = UDim2.fromOffset(0, 11)
 	indicator.BorderSizePixel = 0
 	indicator.Visible = false
-	indicator.ZIndex = 7
 	indicator.Parent = button
 
 	tabs[name] = {
@@ -1045,54 +808,73 @@ local function createTab(name, icon, order)
 		end
 	end)
 
+	connect(button.MouseButton1Click, function()
+		for tabName, data in pairs(tabs) do
+			local selected = tabName == name
+
+			data.Button:SetAttribute("Selected", selected)
+			data.Indicator.Visible = selected
+
+			quickTween(data.Button, 0.15, {
+				BackgroundColor3 = selected and PANEL3 or DARK
+			})
+
+			data.Icon.TextColor3 =
+				selected and State.AccentColor or LIGHTGREY
+
+			data.Text.TextColor3 =
+				selected and WHITE or LIGHTGREY
+		end
+
+		for pageName, page in pairs(pages) do
+			page.Visible = pageName == name
+		end
+
+		playSound(clickSound)
+	end)
+
 	return button
 end
 
-createTab("Home", "●", 1)
-createTab("Visuals", "◈", 2)
-createTab("Settings", "⚙", 3)
-createTab("Misc", "◆", 4)
+createTab("Home", "●")
+createTab("Visuals", "◈")
+createTab("Settings", "⚙")
+createTab("Misc", "◆")
 
 --============================================================
 -- PROFILE
 --============================================================
 
 local profile = Instance.new("Frame")
-
 profile.BackgroundColor3 = PANEL
 profile.Size = UDim2.new(1, -20, 0, 55)
 profile.Position = UDim2.new(0, 10, 1, -68)
 profile.BorderSizePixel = 0
-profile.ZIndex = 4
 profile.Parent = sidebar
 
 corner(profile, 5)
-stroke(profile, BORDER_SOFT, 1, 0)
+stroke(profile, BORDER_SOFT)
 
 local avatar = Instance.new("Frame")
-
 avatar.BackgroundColor3 = PANEL3
 avatar.Size = UDim2.fromOffset(34, 34)
 avatar.Position = UDim2.fromOffset(10, 10)
 avatar.BorderSizePixel = 0
-avatar.ZIndex = 5
 avatar.Parent = profile
 
 corner(avatar, 999)
-staticGradient(avatar)
 
-local avatarLetter = label(
+local avatarLetter = makeLabel(
 	avatar,
 	string.sub(player.DisplayName, 1, 1):upper(),
 	14,
-	DARK,
+	WHITE,
 	Enum.Font.GothamBold
 )
 
 avatarLetter.Size = UDim2.fromScale(1, 1)
-avatarLetter.ZIndex = 6
 
-local profileName = label(
+local profileName = makeLabel(
 	profile,
 	player.DisplayName,
 	11,
@@ -1103,10 +885,8 @@ local profileName = label(
 profileName.Position = UDim2.fromOffset(53, 9)
 profileName.Size = UDim2.new(1, -60, 0, 18)
 profileName.TextXAlignment = Enum.TextXAlignment.Left
-profileName.TextTruncate = Enum.TextTruncate.AtEnd
-profileName.ZIndex = 5
 
-local profileStatus = label(
+local profileStatus = makeLabel(
 	profile,
 	"CONNECTED",
 	8,
@@ -1117,19 +897,15 @@ local profileStatus = label(
 profileStatus.Position = UDim2.fromOffset(53, 27)
 profileStatus.Size = UDim2.new(1, -60, 0, 15)
 profileStatus.TextXAlignment = Enum.TextXAlignment.Left
-profileStatus.ZIndex = 5
 
 --============================================================
--- CONTENT
+-- CONTENT PAGES
 --============================================================
 
 local content = Instance.new("Frame")
-
 content.BackgroundTransparency = 1
 content.Size = UDim2.new(1, -176, 1, -68)
 content.Position = UDim2.fromOffset(176, 68)
-content.BorderSizePixel = 0
-content.ZIndex = 3
 content.Parent = hub
 
 local pages = {}
@@ -1141,7 +917,6 @@ local function createPage(name)
 	page.BackgroundTransparency = 1
 	page.Size = UDim2.fromScale(1, 1)
 	page.Visible = false
-	page.ZIndex = 4
 	page.Parent = content
 
 	pages[name] = page
@@ -1155,7 +930,7 @@ local settingsPage = createPage("Settings")
 local miscPage = createPage("Misc")
 
 local function pageTitle(parent, titleText, subText)
-	local t = label(
+	local t = makeLabel(
 		parent,
 		titleText,
 		20,
@@ -1166,20 +941,17 @@ local function pageTitle(parent, titleText, subText)
 	t.Position = UDim2.fromOffset(24, 20)
 	t.Size = UDim2.new(1, -48, 0, 28)
 	t.TextXAlignment = Enum.TextXAlignment.Left
-	t.ZIndex = 5
 
-	local s = label(
+	local s = makeLabel(
 		parent,
 		subText,
 		10,
-		GREY,
-		Enum.Font.Gotham
+		GREY
 	)
 
 	s.Position = UDim2.fromOffset(25, 49)
 	s.Size = UDim2.new(1, -50, 0, 20)
 	s.TextXAlignment = Enum.TextXAlignment.Left
-	s.ZIndex = 5
 end
 
 local function createCard(parent, position, size, titleText)
@@ -1189,13 +961,12 @@ local function createCard(parent, position, size, titleText)
 	card.Position = position
 	card.Size = size
 	card.BorderSizePixel = 0
-	card.ZIndex = 5
 	card.Parent = parent
 
 	corner(card, 5)
-	stroke(card, BORDER_SOFT, 1, 0)
+	stroke(card, BORDER_SOFT)
 
-	local title = label(
+	local t = makeLabel(
 		card,
 		titleText,
 		10,
@@ -1203,10 +974,9 @@ local function createCard(parent, position, size, titleText)
 		Enum.Font.GothamBold
 	)
 
-	title.Position = UDim2.fromOffset(15, 13)
-	title.Size = UDim2.new(1, -30, 0, 18)
-	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.ZIndex = 6
+	t.Position = UDim2.fromOffset(15, 13)
+	t.Size = UDim2.new(1, -30, 0, 18)
+	t.TextXAlignment = Enum.TextXAlignment.Left
 
 	return card
 end
@@ -1217,20 +987,17 @@ local function createToggle(parent, y, textValue, default)
 	row.BackgroundTransparency = 1
 	row.Size = UDim2.new(1, -30, 0, 34)
 	row.Position = UDim2.fromOffset(15, y)
-	row.ZIndex = 6
 	row.Parent = parent
 
-	local textLabel = label(
+	local textLabel = makeLabel(
 		row,
 		textValue,
 		11,
-		SILVER,
-		Enum.Font.Gotham
+		SILVER
 	)
 
 	textLabel.Size = UDim2.new(1, -60, 1, 0)
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
-	textLabel.ZIndex = 7
 
 	local toggle = Instance.new("TextButton")
 
@@ -1240,61 +1007,45 @@ local function createToggle(parent, y, textValue, default)
 	toggle.Text = ""
 	toggle.BorderSizePixel = 0
 	toggle.AutoButtonColor = false
-	toggle.ZIndex = 7
 	toggle.Parent = row
 
 	corner(toggle, 10)
-	stroke(toggle, BORDER, 1, 0)
 
 	local knob = Instance.new("Frame")
 
 	knob.BackgroundColor3 = default and DARK or GREY
 	knob.Size = UDim2.fromOffset(14, 14)
-
 	knob.Position =
 		default
 		and UDim2.new(1, -17, 0.5, -7)
 		or UDim2.fromOffset(3, 3)
 
 	knob.BorderSizePixel = 0
-	knob.ZIndex = 8
 	knob.Parent = toggle
 
 	corner(knob, 999)
 
 	local state = default
 
-	connect(toggle.MouseEnter, function()
-		playSound(hoverSound)
-	end)
-
 	connect(toggle.MouseButton1Click, function()
 		state = not state
 
 		playSound(clickSound)
 
-		quickTween(
-			toggle,
-			0.16,
-			{
-				BackgroundColor3 =
-					state and State.AccentColor or PANEL3
-			}
-		)
+		quickTween(toggle, 0.16, {
+			BackgroundColor3 =
+				state and State.AccentColor or PANEL3
+		})
 
-		quickTween(
-			knob,
-			0.16,
-			{
-				Position =
-					state
-					and UDim2.new(1, -17, 0.5, -7)
-					or UDim2.fromOffset(3, 3),
+		quickTween(knob, 0.16, {
+			Position =
+				state
+				and UDim2.new(1, -17, 0.5, -7)
+				or UDim2.fromOffset(3, 3),
 
-				BackgroundColor3 =
-					state and DARK or GREY
-			}
-		)
+			BackgroundColor3 =
+				state and DARK or GREY
+		})
 	end)
 
 	return toggle
@@ -1306,20 +1057,17 @@ local function createDropdown(parent, y, textValue, options, default)
 	row.BackgroundTransparency = 1
 	row.Size = UDim2.new(1, -30, 0, 36)
 	row.Position = UDim2.fromOffset(15, y)
-	row.ZIndex = 6
 	row.Parent = parent
 
-	local textLabel = label(
+	local textLabel = makeLabel(
 		row,
 		textValue,
 		11,
-		SILVER,
-		Enum.Font.Gotham
+		SILVER
 	)
 
 	textLabel.Size = UDim2.new(0.45, 0, 1, 0)
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
-	textLabel.ZIndex = 7
 
 	local dropdown = Instance.new("TextButton")
 
@@ -1328,17 +1076,13 @@ local function createDropdown(parent, y, textValue, options, default)
 	dropdown.TextColor3 = LIGHTGREY
 	dropdown.TextSize = 10
 	dropdown.Font = Enum.Font.GothamMedium
-
 	dropdown.Size = UDim2.fromOffset(125, 28)
 	dropdown.Position = UDim2.new(1, -125, 0.5, -14)
-
 	dropdown.BorderSizePixel = 0
 	dropdown.AutoButtonColor = false
-	dropdown.ZIndex = 7
 	dropdown.Parent = row
 
 	corner(dropdown, 4)
-	stroke(dropdown, BORDER_SOFT, 1, 0)
 
 	local index = 1
 
@@ -1349,10 +1093,6 @@ local function createDropdown(parent, y, textValue, options, default)
 		end
 	end
 
-	connect(dropdown.MouseEnter, function()
-		playSound(hoverSound)
-	end)
-
 	connect(dropdown.MouseButton1Click, function()
 		index += 1
 
@@ -1361,7 +1101,6 @@ local function createDropdown(parent, y, textValue, options, default)
 		end
 
 		dropdown.Text = options[index]
-
 		playSound(clickSound)
 	end)
 
@@ -1374,22 +1113,19 @@ local function createSlider(parent, y, textValue, default)
 	row.BackgroundTransparency = 1
 	row.Size = UDim2.new(1, -30, 0, 48)
 	row.Position = UDim2.fromOffset(15, y)
-	row.ZIndex = 6
 	row.Parent = parent
 
-	local textLabel = label(
+	local textLabel = makeLabel(
 		row,
 		textValue,
 		11,
-		SILVER,
-		Enum.Font.Gotham
+		SILVER
 	)
 
 	textLabel.Size = UDim2.new(1, 0, 0, 20)
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
-	textLabel.ZIndex = 7
 
-	local valueLabel = label(
+	local valueLabel = makeLabel(
 		row,
 		tostring(default) .. "%",
 		9,
@@ -1400,7 +1136,6 @@ local function createSlider(parent, y, textValue, default)
 	valueLabel.Position = UDim2.new(1, -40, 0, 0)
 	valueLabel.Size = UDim2.fromOffset(40, 20)
 	valueLabel.TextXAlignment = Enum.TextXAlignment.Right
-	valueLabel.ZIndex = 7
 
 	local slider = Instance.new("Frame")
 
@@ -1408,7 +1143,6 @@ local function createSlider(parent, y, textValue, default)
 	slider.Size = UDim2.new(1, 0, 0, 5)
 	slider.Position = UDim2.fromOffset(0, 29)
 	slider.BorderSizePixel = 0
-	slider.ZIndex = 7
 	slider.Parent = row
 
 	corner(slider, 3)
@@ -1418,46 +1152,38 @@ local function createSlider(parent, y, textValue, default)
 	fill.BackgroundColor3 = State.AccentColor
 	fill.Size = UDim2.new(default / 100, 0, 1, 0)
 	fill.BorderSizePixel = 0
-	fill.ZIndex = 8
 	fill.Parent = slider
 
 	corner(fill, 3)
 
-	connect(
-		slider.InputBegan,
-		function(input)
-			if input.UserInputType == Enum.UserInputType.MouseButton1 then
-				local mouse = player:GetMouse()
-
-				local relative = math.clamp(
-					(mouse.X - slider.AbsolutePosition.X)
-						/ slider.AbsoluteSize.X,
-					0,
-					1
-				)
-
-				local value = math.floor(relative * 100)
-
-				valueLabel.Text = tostring(value) .. "%"
-
-				quickTween(
-					fill,
-					0.12,
-					{
-						Size = UDim2.new(relative, 0, 1, 0)
-					}
-				)
-
-				playSound(clickSound)
-			end
+	connect(slider.InputBegan, function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+			return
 		end
-	)
 
-	return slider
+		local mouse = player:GetMouse()
+
+		local relative = math.clamp(
+			(mouse.X - slider.AbsolutePosition.X)
+				/ math.max(slider.AbsoluteSize.X, 1),
+			0,
+			1
+		)
+
+		local value = math.floor(relative * 100)
+
+		valueLabel.Text = tostring(value) .. "%"
+
+		quickTween(fill, 0.12, {
+			Size = UDim2.new(relative, 0, 1, 0)
+		})
+
+		playSound(clickSound)
+	end)
 end
 
 --============================================================
--- HOME
+-- HOME PAGE
 --============================================================
 
 pageTitle(
@@ -1493,7 +1219,7 @@ createToggle(homeOther, 156, "Option Four", false)
 createToggle(homeOther, 192, "Notifications", true)
 
 --============================================================
--- VISUALS
+-- VISUALS PAGE
 --============================================================
 
 pageTitle(
@@ -1550,7 +1276,7 @@ createToggle(visualsAppearance, 162, "Blur", false)
 createToggle(visualsAppearance, 198, "Shadows", true)
 
 --============================================================
--- SETTINGS
+-- SETTINGS PAGE
 --============================================================
 
 pageTitle(
@@ -1607,7 +1333,7 @@ createToggle(settingsInterface, 162, "Show Top Bar", true)
 createToggle(settingsInterface, 198, "Remember Tab", true)
 
 --============================================================
--- MISC
+-- MISC PAGE
 --============================================================
 
 pageTitle(
@@ -1656,7 +1382,7 @@ createDropdown(
 )
 
 --============================================================
--- FIXED TOP NAV
+-- FIXED TOP NAVIGATION
 --============================================================
 
 local navigation = Instance.new("Frame")
@@ -1666,13 +1392,12 @@ navigation.AnchorPoint = Vector2.new(0.5, 0)
 navigation.Position = UDim2.fromScale(0.5, 0.015)
 navigation.Size = UDim2.fromOffset(500, 56)
 navigation.BackgroundColor3 = DARKER
-navigation.BackgroundTransparency = 0.02
 navigation.BorderSizePixel = 0
 navigation.ZIndex = 500
 navigation.Parent = gui
 
 corner(navigation, 9)
-stroke(navigation, BORDER, 1, 0)
+stroke(navigation, BORDER)
 
 local navLayout = Instance.new("UIListLayout")
 
@@ -1683,7 +1408,6 @@ navLayout.Padding = UDim.new(0, 5)
 navLayout.Parent = navigation
 
 local navPadding = Instance.new("UIPadding")
-
 navPadding.PaddingLeft = UDim.new(0, 7)
 navPadding.PaddingRight = UDim.new(0, 7)
 navPadding.Parent = navigation
@@ -1704,7 +1428,7 @@ local function createNavButton(name, icon)
 
 	corner(button, 6)
 
-	local iconLabel = label(
+	local iconLabel = makeLabel(
 		button,
 		icon,
 		16,
@@ -1714,9 +1438,8 @@ local function createNavButton(name, icon)
 
 	iconLabel.Position = UDim2.fromOffset(7, 0)
 	iconLabel.Size = UDim2.fromOffset(26, 42)
-	iconLabel.ZIndex = 502
 
-	local textLabel = label(
+	local textLabel = makeLabel(
 		button,
 		name,
 		9,
@@ -1727,7 +1450,6 @@ local function createNavButton(name, icon)
 	textLabel.Position = UDim2.fromOffset(32, 0)
 	textLabel.Size = UDim2.new(1, -36, 1, 0)
 	textLabel.TextXAlignment = Enum.TextXAlignment.Left
-	textLabel.ZIndex = 502
 
 	navButtons[name] = {
 		Button = button,
@@ -1789,7 +1511,7 @@ local function createNavPage(name)
 	page.Parent = navPages
 
 	corner(page, 9)
-	stroke(page, BORDER, 1, 0)
+	stroke(page, BORDER)
 
 	return page
 end
@@ -1799,7 +1521,7 @@ local appearancePage = createNavPage("Appearance")
 local playersPage = createNavPage("Players")
 
 local function createNavTitle(parent, titleText, subtitleText)
-	local titleLabel = label(
+	local t = makeLabel(
 		parent,
 		titleText,
 		20,
@@ -1807,33 +1529,30 @@ local function createNavTitle(parent, titleText, subtitleText)
 		Enum.Font.GothamBold
 	)
 
-	titleLabel.Position = UDim2.fromOffset(22, 18)
-	titleLabel.Size = UDim2.new(1, -44, 0, 28)
-	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	titleLabel.ZIndex = 302
+	t.Position = UDim2.fromOffset(22, 18)
+	t.Size = UDim2.new(1, -44, 0, 28)
+	t.TextXAlignment = Enum.TextXAlignment.Left
 
-	local subtitleLabel = label(
+	local s = makeLabel(
 		parent,
 		subtitleText,
 		10,
-		GREY,
-		Enum.Font.Gotham
+		GREY
 	)
 
-	subtitleLabel.Position = UDim2.fromOffset(23, 47)
-	subtitleLabel.Size = UDim2.new(1, -46, 0, 18)
-	subtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	subtitleLabel.ZIndex = 302
+	s.Position = UDim2.fromOffset(23, 47)
+	s.Size = UDim2.new(1, -46, 0, 18)
+	s.TextXAlignment = Enum.TextXAlignment.Left
 end
 
 --============================================================
--- CONSOLE PAGE
+-- CONSOLE
 --============================================================
 
 createNavTitle(
 	consolePage,
 	"Bubbles Console",
-	"Local interface console"
+	"Local interface command console"
 )
 
 local consoleOutput = Instance.new("ScrollingFrame")
@@ -1843,22 +1562,16 @@ consoleOutput.Position = UDim2.fromOffset(20, 76)
 consoleOutput.Size = UDim2.new(1, -40, 1, -140)
 consoleOutput.BorderSizePixel = 0
 consoleOutput.ScrollBarThickness = 3
-consoleOutput.ScrollBarImageColor3 = State.AccentColor
-consoleOutput.CanvasSize = UDim2.new(0, 0, 0, 0)
 consoleOutput.ZIndex = 302
 consoleOutput.Parent = consolePage
 
 corner(consoleOutput, 6)
-stroke(consoleOutput, BORDER_SOFT, 1, 0)
 
 local consoleLayout = Instance.new("UIListLayout")
-
 consoleLayout.Padding = UDim.new(0, 3)
-consoleLayout.SortOrder = Enum.SortOrder.LayoutOrder
 consoleLayout.Parent = consoleOutput
 
 local consolePadding = Instance.new("UIPadding")
-
 consolePadding.PaddingTop = UDim.new(0, 10)
 consolePadding.PaddingBottom = UDim.new(0, 10)
 consolePadding.PaddingLeft = UDim.new(0, 10)
@@ -1874,16 +1587,6 @@ connect(
 			0,
 			consoleLayout.AbsoluteContentSize.Y + 20
 		)
-
-		consoleOutput.CanvasPosition =
-			Vector2.new(
-				0,
-				math.max(
-					0,
-					consoleLayout.AbsoluteContentSize.Y
-						- consoleOutput.AbsoluteSize.Y
-				)
-			)
 	end
 )
 
@@ -1893,25 +1596,13 @@ local function consolePrint(text, level)
 	line.BackgroundTransparency = 1
 	line.TextXAlignment = Enum.TextXAlignment.Left
 	line.TextYAlignment = Enum.TextYAlignment.Center
-	line.TextWrapped = false
-
 	line.Size = UDim2.new(1, 0, 0, 20)
 	line.TextSize = 10
 	line.Font = Enum.Font.Code
 	line.ZIndex = 303
-	line.Parent = consoleOutput
-
-	local prefix = "[INFO] "
-
-	if level == "warn" then
-		prefix = "[WARN] "
-	elseif level == "error" then
-		prefix = "[ERR ] "
-	elseif level == "system" then
-		prefix = "[SYS ] "
-	end
-
-	line.Text = os.date("%H:%M:%S") .. "  " .. prefix .. tostring(text)
+	line.Text = os.date("%H:%M:%S")
+		.. "  "
+		.. tostring(text)
 
 	if level == "error" then
 		line.TextColor3 = Color3.fromRGB(220, 150, 150)
@@ -1921,11 +1612,11 @@ local function consolePrint(text, level)
 		line.TextColor3 = LIGHTGREY
 	end
 
-	return line
+	line.Parent = consoleOutput
 end
 
 consolePrint("Bubbles Console initialized.", "system")
-consolePrint("Type 'help' for available commands.", "system")
+consolePrint("Type 'help' for commands.", "system")
 
 local consoleInput = Instance.new("TextBox")
 
@@ -1937,18 +1628,18 @@ consoleInput.Text = ""
 consoleInput.TextSize = 11
 consoleInput.Font = Enum.Font.Code
 consoleInput.ClearTextOnFocus = false
-
 consoleInput.Position = UDim2.fromOffset(20, 445)
 consoleInput.Size = UDim2.new(1, -40, 0, 40)
-
 consoleInput.BorderSizePixel = 0
 consoleInput.ZIndex = 303
 consoleInput.Parent = consolePage
 
 corner(consoleInput, 5)
-stroke(consoleInput, BORDER_SOFT, 1, 0)
 
 local function runConsoleCommand(command)
+	command = tostring(command or "")
+	command = command:gsub("^%s+", "")
+	command = command:gsub("%s+$", "")
 	command = string.lower(command)
 
 	if command == "" then
@@ -1961,16 +1652,18 @@ local function runConsoleCommand(command)
 	State.ConsoleIndex = #State.ConsoleHistory + 1
 
 	if command == "help" then
+
 		consolePrint("Available commands:")
-		consolePrint("help - show commands")
-		consolePrint("clear - clear console")
-		consolePrint("hub - open main UI")
-		consolePrint("hide - hide main UI")
-		consolePrint("players - open player list")
-		consolePrint("settings - open appearance settings")
-		consolePrint("version - show interface version")
+		consolePrint("help")
+		consolePrint("clear")
+		consolePrint("hub")
+		consolePrint("hide")
+		consolePrint("players")
+		consolePrint("settings")
+		consolePrint("version")
 
 	elseif command == "clear" then
+
 		for _, child in ipairs(consoleOutput:GetChildren()) do
 			if child:IsA("TextLabel") then
 				child:Destroy()
@@ -1978,32 +1671,43 @@ local function runConsoleCommand(command)
 		end
 
 	elseif command == "hub" then
+
 		State.CurrentTab = "Hub"
+		navPages.Visible = false
 		hub.Visible = true
 		hubShadow.Visible = true
-		navPages.Visible = false
-		consolePrint("Hub opened.", "system")
 
 	elseif command == "hide" then
+
 		hub.Visible = false
 		hubShadow.Visible = false
-		consolePrint("Hub hidden.", "system")
 
 	elseif command == "players" then
+
 		State.CurrentTab = "Players"
 		navPages.Visible = true
-		consolePrint("Player list opened.", "system")
+		consolePage.Visible = false
+		appearancePage.Visible = false
+		playersPage.Visible = true
 
 	elseif command == "settings" then
+
 		State.CurrentTab = "Settings"
 		navPages.Visible = true
-		consolePrint("Appearance settings opened.", "system")
+		consolePage.Visible = false
+		playersPage.Visible = false
+		appearancePage.Visible = true
 
 	elseif command == "version" then
-		consolePrint("BubblesHook V2.0", "system")
+
+		consolePrint("BubblesHook V2 - fixed build.", "system")
 
 	else
-		consolePrint("Unknown command. Type 'help'.", "warn")
+
+		consolePrint(
+			"Unknown command. Type 'help'.",
+			"warn"
+		)
 	end
 end
 
@@ -2018,59 +1722,8 @@ connect(
 	end
 )
 
-connect(
-	UserInputService.InputBegan,
-	function(input, processed)
-		if processed then
-			return
-		end
-
-		if not consolePage.Visible then
-			return
-		end
-
-		if input.KeyCode == Enum.KeyCode.Up then
-			if #State.ConsoleHistory == 0 then
-				return
-			end
-
-			State.ConsoleIndex = math.clamp(
-				State.ConsoleIndex - 1,
-				1,
-				#State.ConsoleHistory
-			)
-
-			consoleInput.Text =
-				State.ConsoleHistory[State.ConsoleIndex]
-
-			task.defer(function()
-				consoleInput.CursorPosition =
-					#consoleInput.Text + 1
-			end)
-
-		elseif input.KeyCode == Enum.KeyCode.Down then
-			if #State.ConsoleHistory == 0 then
-				return
-			end
-
-			State.ConsoleIndex = math.clamp(
-				State.ConsoleIndex + 1,
-				1,
-				#State.ConsoleHistory + 1
-			)
-
-			if State.ConsoleIndex <= #State.ConsoleHistory then
-				consoleInput.Text =
-					State.ConsoleHistory[State.ConsoleIndex]
-			else
-				consoleInput.Text = ""
-			end
-		end
-	end
-)
-
 --============================================================
--- APPEARANCE SETTINGS
+-- APPEARANCE
 --============================================================
 
 createNavTitle(
@@ -2085,13 +1738,12 @@ appearanceLeft.BackgroundColor3 = PANEL
 appearanceLeft.Position = UDim2.fromOffset(20, 78)
 appearanceLeft.Size = UDim2.fromOffset(300, 350)
 appearanceLeft.BorderSizePixel = 0
-appearanceLeft.ZIndex = 302
 appearanceLeft.Parent = appearancePage
 
 corner(appearanceLeft, 7)
-stroke(appearanceLeft, BORDER_SOFT, 1, 0)
+stroke(appearanceLeft, BORDER_SOFT)
 
-local appearanceTitle = label(
+local appearanceTitle = makeLabel(
 	appearanceLeft,
 	"COLOR SETTINGS",
 	10,
@@ -2102,313 +1754,125 @@ local appearanceTitle = label(
 appearanceTitle.Position = UDim2.fromOffset(15, 13)
 appearanceTitle.Size = UDim2.new(1, -30, 0, 20)
 appearanceTitle.TextXAlignment = Enum.TextXAlignment.Left
-appearanceTitle.ZIndex = 303
 
---============================================================
--- COLOR WHEEL
---============================================================
+-- Use a generated HSV wheel instead of depending on an external
+-- ImageButton asset.
 
-local colorWheel = Instance.new("ImageButton")
+local colorWheel = Instance.new("Frame")
 
-colorWheel.BackgroundTransparency = 1
-colorWheel.Image = "rbxassetid://6020299385"
-colorWheel.ImageColor3 = Color3.new(1, 1, 1)
+colorWheel.BackgroundColor3 = PANEL3
+colorWheel.Position = UDim2.fromOffset(55, 48)
 colorWheel.Size = UDim2.fromOffset(190, 190)
-colorWheel.Position = UDim2.fromOffset(20, 45)
-colorWheel.AutoButtonColor = false
-colorWheel.ZIndex = 304
+colorWheel.BorderSizePixel = 0
 colorWheel.Parent = appearanceLeft
 
-local colorCursor = Instance.new("Frame")
+corner(colorWheel, 999)
+stroke(colorWheel, BORDER)
 
-colorCursor.BackgroundColor3 = WHITE
-colorCursor.Size = UDim2.fromOffset(12, 12)
-colorCursor.AnchorPoint = Vector2.new(0.5, 0.5)
-colorCursor.Position = UDim2.fromScale(0.5, 0.5)
-colorCursor.BorderSizePixel = 0
-colorCursor.ZIndex = 305
-colorCursor.Parent = colorWheel
+local wheelDots = {}
 
-corner(colorCursor, 999)
-stroke(colorCursor, BLACK, 2, 0)
+for i = 0, 71 do
+	local angle = (i / 72) * math.pi * 2
+	local radius = 82
 
-local function hsvFromWheel(x, y)
-	local center = Vector2.new(
-		colorWheel.AbsoluteSize.X / 2,
-		colorWheel.AbsoluteSize.Y / 2
+	local dot = Instance.new("TextButton")
+
+	dot.Text = ""
+	dot.AutoButtonColor = false
+	dot.BackgroundColor3 = Color3.fromHSV(i / 72, 1, 1)
+	dot.Size = UDim2.fromOffset(12, 12)
+	dot.AnchorPoint = Vector2.new(0.5, 0.5)
+
+	dot.Position = UDim2.new(
+		0.5,
+		math.cos(angle) * radius,
+		0.5,
+		math.sin(angle) * radius
 	)
 
-	local point = Vector2.new(x, y) - center
+	dot.BorderSizePixel = 0
+	dot.Parent = colorWheel
 
-	local distance = point.Magnitude
-	local radius = math.max(center.X, center.Y)
+	corner(dot, 999)
 
-	if distance > radius then
-		point = point.Unit * radius
-		distance = radius
-	end
-
-	local hue =
-		(math.atan2(point.Y, point.X) / (math.pi * 2))
-		+ 0.5
-
-	if hue < 0 then
-		hue += 1
-	end
-
-	local saturation =
-		math.clamp(distance / radius, 0, 1)
-
-	return Color3.fromHSV(
-		hue,
-		saturation,
-		1
-	)
+	table.insert(wheelDots, dot)
 end
 
-connect(
-	colorWheel.InputBegan,
-	function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local relative =
-				input.Position
-				- colorWheel.AbsolutePosition
+local colorPreview = Instance.new("Frame")
 
-			local color = hsvFromWheel(
-				relative.X,
-				relative.Y
-			)
+colorPreview.BackgroundColor3 = State.AccentColor
+colorPreview.Size = UDim2.fromOffset(64, 64)
+colorPreview.AnchorPoint = Vector2.new(0.5, 0.5)
+colorPreview.Position = UDim2.fromScale(0.5, 0.5)
+colorPreview.BorderSizePixel = 0
+colorPreview.Parent = colorWheel
 
-			State.AccentColor = color
+corner(colorPreview, 999)
+stroke(colorPreview, WHITE, 2, 0.25)
 
-			colorCursor.Position = UDim2.fromOffset(
-				relative.X,
-				relative.Y
-			)
+local function setAccentColor(color)
+	State.AccentColor = color
 
-			consolePrint(
-				"Accent color changed.",
-				"system"
-			)
+	colorPreview.BackgroundColor3 = color
+
+	for _, data in pairs(navButtons) do
+		data.Icon.TextColor3 =
+			State.CurrentTab == data.Text.Text
+			and color
+			or LIGHTGREY
+	end
+
+	for _, data in pairs(tabs) do
+		data.Indicator.BackgroundColor3 = color
+
+		if data.Button:GetAttribute("Selected") then
+			data.Icon.TextColor3 = color
 		end
 	end
-)
+end
 
-local baseColorButton = Instance.new("TextButton")
+for i, dot in ipairs(wheelDots) do
+	connect(dot.MouseButton1Click, function()
+		setAccentColor(
+			Color3.fromHSV(
+				(i - 1) / 72,
+				1,
+				1
+			)
+		)
 
-baseColorButton.BackgroundColor3 = State.BaseColor
-baseColorButton.Text = ""
-baseColorButton.Position = UDim2.fromOffset(20, 250)
-baseColorButton.Size = UDim2.fromOffset(125, 36)
-baseColorButton.BorderSizePixel = 0
-baseColorButton.AutoButtonColor = false
-baseColorButton.ZIndex = 303
-baseColorButton.Parent = appearanceLeft
-
-corner(baseColorButton, 5)
-stroke(baseColorButton, BORDER, 1, 0)
-
-local baseText = label(
-	baseColorButton,
-	"BASE COLOR",
-	9,
-	WHITE,
-	Enum.Font.GothamBold
-)
-
-baseText.Size = UDim2.fromScale(1, 1)
-baseText.ZIndex = 304
+		playSound(clickSound)
+	end)
+end
 
 local accentColorButton = Instance.new("TextButton")
 
 accentColorButton.BackgroundColor3 = State.AccentColor
-accentColorButton.Text = ""
-accentColorButton.Position = UDim2.fromOffset(165, 250)
-accentColorButton.Size = UDim2.fromOffset(115, 36)
+accentColorButton.Text = "ACCENT COLOR"
+accentColorButton.TextColor3 = DARK
+accentColorButton.TextSize = 9
+accentColorButton.Font = Enum.Font.GothamBold
+accentColorButton.Position = UDim2.fromOffset(20, 255)
+accentColorButton.Size = UDim2.fromOffset(260, 36)
 accentColorButton.BorderSizePixel = 0
 accentColorButton.AutoButtonColor = false
-accentColorButton.ZIndex = 303
 accentColorButton.Parent = appearanceLeft
 
 corner(accentColorButton, 5)
 
-local accentText = label(
-	accentColorButton,
-	"ACCENT",
-	9,
-	DARK,
-	Enum.Font.GothamBold
-)
-
-accentText.Size = UDim2.fromScale(1, 1)
-accentText.ZIndex = 304
-
-local transparencySlider = Instance.new("Frame")
-
-transparencySlider.BackgroundColor3 = PANEL3
-transparencySlider.Position = UDim2.fromOffset(20, 310)
-transparencySlider.Size = UDim2.fromOffset(260, 6)
-transparencySlider.BorderSizePixel = 0
-transparencySlider.ZIndex = 303
-transparencySlider.Parent = appearanceLeft
-
-corner(transparencySlider, 3)
-
-local transparencyFill = Instance.new("Frame")
-
-transparencyFill.BackgroundColor3 = State.AccentColor
-transparencyFill.Size = UDim2.new(0, 0, 1, 0)
-transparencyFill.BorderSizePixel = 0
-transparencyFill.ZIndex = 304
-transparencyFill.Parent = transparencySlider
-
-corner(transparencyFill, 3)
-
-local transparencyLabel = label(
-	appearanceLeft,
-	"TRANSPARENCY  0%",
-	9,
-	GREY,
-	Enum.Font.GothamMedium
-)
-
-transparencyLabel.Position = UDim2.fromOffset(20, 323)
-transparencyLabel.Size = UDim2.fromOffset(260, 18)
-transparencyLabel.TextXAlignment = Enum.TextXAlignment.Left
-transparencyLabel.ZIndex = 304
-
-connect(
-	transparencySlider.InputBegan,
-	function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			local relative =
-				math.clamp(
-					(input.Position.X - transparencySlider.AbsolutePosition.X)
-						/ transparencySlider.AbsoluteSize.X,
-					0,
-					1
-				)
-
-			local value = math.floor(relative * 70)
-
-			State.Transparency = value / 100
-
-			transparencyLabel.Text =
-				"TRANSPARENCY  "
-				.. tostring(value)
-				.. "%"
-
-			quickTween(
-				transparencyFill,
-				0.1,
-				{
-					Size = UDim2.new(relative, 0, 1, 0)
-				}
-			)
-
-			playSound(clickSound)
-		end
-	end
-)
-
-local appearanceRight = Instance.new("Frame")
-
-appearanceRight.BackgroundColor3 = PANEL
-appearanceRight.Position = UDim2.fromOffset(335, 78)
-appearanceRight.Size = UDim2.new(1, -355, 0, 350)
-appearanceRight.BorderSizePixel = 0
-appearanceRight.ZIndex = 302
-appearanceRight.Parent = appearancePage
-
-corner(appearanceRight, 7)
-stroke(appearanceRight, BORDER_SOFT, 1, 0)
-
-local previewTitle = label(
-	appearanceRight,
-	"PREVIEW",
-	10,
-	SILVER,
-	Enum.Font.GothamBold
-)
-
-previewTitle.Position = UDim2.fromOffset(15, 13)
-previewTitle.Size = UDim2.new(1, -30, 0, 20)
-previewTitle.TextXAlignment = Enum.TextXAlignment.Left
-previewTitle.ZIndex = 303
-
-local preview = Instance.new("Frame")
-
-preview.BackgroundColor3 = State.BaseColor
-preview.Position = UDim2.fromOffset(15, 48)
-preview.Size = UDim2.new(1, -30, 0, 180)
-preview.BorderSizePixel = 0
-preview.ZIndex = 303
-preview.Parent = appearanceRight
-
-corner(preview, 7)
-stroke(preview, BORDER, 1, 0)
-
-local previewAccent = Instance.new("Frame")
-
-previewAccent.BackgroundColor3 = State.AccentColor
-previewAccent.Position = UDim2.fromOffset(14, 14)
-previewAccent.Size = UDim2.new(1, -28, 0, 4)
-previewAccent.BorderSizePixel = 0
-previewAccent.ZIndex = 304
-previewAccent.Parent = preview
-
-corner(previewAccent, 3)
-
-local previewText = label(
-	preview,
-	"BUBBLESHOOK",
-	17,
-	WHITE,
-	Enum.Font.GothamBold
-)
-
-previewText.Position = UDim2.fromOffset(18, 37)
-previewText.Size = UDim2.new(1, -36, 0, 25)
-previewText.TextXAlignment = Enum.TextXAlignment.Left
-previewText.ZIndex = 304
-
-local previewSub = label(
-	preview,
-	"Appearance preview",
-	10,
-	GREY,
-	Enum.Font.Gotham
-)
-
-previewSub.Position = UDim2.fromOffset(18, 64)
-previewSub.Size = UDim2.new(1, -36, 0, 20)
-previewSub.TextXAlignment = Enum.TextXAlignment.Left
-previewSub.ZIndex = 304
-
-local previewButton = Instance.new("TextButton")
-
-previewButton.BackgroundColor3 = State.AccentColor
-previewButton.Text = "TEST ACCENT"
-previewButton.TextColor3 = DARK
-previewButton.TextSize = 10
-previewButton.Font = Enum.Font.GothamBold
-previewButton.Position = UDim2.fromOffset(18, 105)
-previewButton.Size = UDim2.fromOffset(125, 34)
-previewButton.BorderSizePixel = 0
-previewButton.AutoButtonColor = false
-previewButton.ZIndex = 304
-previewButton.Parent = preview
-
-corner(previewButton, 5)
+connect(accentColorButton.MouseButton1Click, function()
+	setAccentColor(Color3.fromRGB(235, 238, 245))
+	playSound(clickSound)
+end)
 
 --============================================================
--- PLAYERS PAGE
+-- PLAYERS
 --============================================================
 
 createNavTitle(
 	playersPage,
 	"Players",
-	"Select a player to view their client-safe actions"
+	"Select a player to spectate"
 )
 
 local playerList = Instance.new("ScrollingFrame")
@@ -2418,21 +1882,17 @@ playerList.Position = UDim2.fromOffset(20, 78)
 playerList.Size = UDim2.fromOffset(300, 350)
 playerList.BorderSizePixel = 0
 playerList.ScrollBarThickness = 3
-playerList.ScrollBarImageColor3 = State.AccentColor
-playerList.ZIndex = 302
 playerList.Parent = playersPage
 
 corner(playerList, 7)
-stroke(playerList, BORDER_SOFT, 1, 0)
+stroke(playerList, BORDER_SOFT)
 
 local playerLayout = Instance.new("UIListLayout")
-
 playerLayout.Padding = UDim.new(0, 5)
 playerLayout.SortOrder = Enum.SortOrder.Name
 playerLayout.Parent = playerList
 
 local playerPadding = Instance.new("UIPadding")
-
 playerPadding.PaddingTop = UDim.new(0, 8)
 playerPadding.PaddingLeft = UDim.new(0, 8)
 playerPadding.PaddingRight = UDim.new(0, 8)
@@ -2444,13 +1904,12 @@ selectedPanel.BackgroundColor3 = PANEL
 selectedPanel.Position = UDim2.fromOffset(340, 78)
 selectedPanel.Size = UDim2.new(1, -360, 0, 350)
 selectedPanel.BorderSizePixel = 0
-selectedPanel.ZIndex = 302
 selectedPanel.Parent = playersPage
 
 corner(selectedPanel, 7)
-stroke(selectedPanel, BORDER_SOFT, 1, 0)
+stroke(selectedPanel, BORDER_SOFT)
 
-local selectedTitle = label(
+local selectedTitle = makeLabel(
 	selectedPanel,
 	"NO PLAYER SELECTED",
 	15,
@@ -2461,20 +1920,17 @@ local selectedTitle = label(
 selectedTitle.Position = UDim2.fromOffset(18, 18)
 selectedTitle.Size = UDim2.new(1, -36, 0, 24)
 selectedTitle.TextXAlignment = Enum.TextXAlignment.Left
-selectedTitle.ZIndex = 303
 
-local selectedStatus = label(
+local selectedStatus = makeLabel(
 	selectedPanel,
 	"Select a player from the list.",
 	10,
-	GREY,
-	Enum.Font.Gotham
+	GREY
 )
 
 selectedStatus.Position = UDim2.fromOffset(18, 47)
 selectedStatus.Size = UDim2.new(1, -36, 0, 35)
 selectedStatus.TextXAlignment = Enum.TextXAlignment.Left
-selectedStatus.ZIndex = 303
 
 local spectateButton = Instance.new("TextButton")
 
@@ -2487,7 +1943,6 @@ spectateButton.Position = UDim2.fromOffset(18, 105)
 spectateButton.Size = UDim2.new(1, -36, 0, 38)
 spectateButton.BorderSizePixel = 0
 spectateButton.AutoButtonColor = false
-spectateButton.ZIndex = 303
 spectateButton.Parent = selectedPanel
 
 corner(spectateButton, 5)
@@ -2503,28 +1958,24 @@ stopSpectateButton.Position = UDim2.fromOffset(18, 150)
 stopSpectateButton.Size = UDim2.new(1, -36, 0, 38)
 stopSpectateButton.BorderSizePixel = 0
 stopSpectateButton.AutoButtonColor = false
-stopSpectateButton.ZIndex = 303
 stopSpectateButton.Parent = selectedPanel
 
 corner(stopSpectateButton, 5)
-stroke(stopSpectateButton, BORDER_SOFT, 1, 0)
 
-local safeInfo = label(
+local safeInfo = makeLabel(
 	selectedPanel,
-	"Player actions shown here are local/client-safe.",
+	"Local/client-side player controls.",
 	9,
-	GREY,
-	Enum.Font.Gotham
+	GREY
 )
 
 safeInfo.Position = UDim2.fromOffset(18, 210)
 safeInfo.Size = UDim2.new(1, -36, 0, 40)
 safeInfo.TextWrapped = true
 safeInfo.TextXAlignment = Enum.TextXAlignment.Left
-safeInfo.ZIndex = 303
 
 --============================================================
--- PLAYER LIST REFRESH
+-- PLAYER LIST FUNCTIONS
 --============================================================
 
 local function clearPlayerList()
@@ -2539,8 +1990,7 @@ local function selectPlayer(target)
 	State.SelectedPlayer = target
 
 	if target then
-		selectedTitle.Text =
-			target.DisplayName
+		selectedTitle.Text = target.DisplayName
 
 		selectedStatus.Text =
 			"@" .. target.Name
@@ -2564,7 +2014,6 @@ local function refreshPlayerList()
 		button.Size = UDim2.new(1, 0, 0, 48)
 		button.BorderSizePixel = 0
 		button.AutoButtonColor = false
-		button.ZIndex = 303
 		button.Parent = playerList
 
 		corner(button, 5)
@@ -2575,12 +2024,11 @@ local function refreshPlayerList()
 		avatarCircle.Size = UDim2.fromOffset(32, 32)
 		avatarCircle.Position = UDim2.fromOffset(8, 8)
 		avatarCircle.BorderSizePixel = 0
-		avatarCircle.ZIndex = 304
 		avatarCircle.Parent = button
 
 		corner(avatarCircle, 999)
 
-		local avatarText = label(
+		local avatarText = makeLabel(
 			avatarCircle,
 			string.sub(target.DisplayName, 1, 1):upper(),
 			12,
@@ -2589,9 +2037,8 @@ local function refreshPlayerList()
 		)
 
 		avatarText.Size = UDim2.fromScale(1, 1)
-		avatarText.ZIndex = 305
 
-		local nameLabel = label(
+		local nameLabel = makeLabel(
 			button,
 			target.DisplayName,
 			10,
@@ -2603,20 +2050,17 @@ local function refreshPlayerList()
 		nameLabel.Size = UDim2.new(1, -58, 0, 18)
 		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-		nameLabel.ZIndex = 304
 
-		local username = label(
+		local username = makeLabel(
 			button,
 			"@" .. target.Name,
 			8,
-			GREY,
-			Enum.Font.Gotham
+			GREY
 		)
 
 		username.Position = UDim2.fromOffset(50, 25)
 		username.Size = UDim2.new(1, -58, 0, 15)
 		username.TextXAlignment = Enum.TextXAlignment.Left
-		username.ZIndex = 304
 
 		connect(button.MouseEnter, function()
 			quickTween(button, 0.1, {
@@ -2637,27 +2081,28 @@ local function refreshPlayerList()
 			playSound(clickSound)
 		end)
 	end
+
+	playerList.CanvasSize = UDim2.new(
+		0,
+		0,
+		0,
+		playerLayout.AbsoluteContentSize.Y + 20
+	)
 end
 
-connect(
-	Players.PlayerAdded,
-	function()
-		task.wait()
-		refreshPlayerList()
-	end
-)
+connect(Players.PlayerAdded, function()
+	task.wait()
+	refreshPlayerList()
+end)
 
-connect(
-	Players.PlayerRemoving,
-	function(target)
-		if State.SelectedPlayer == target then
-			selectPlayer(nil)
-		end
-
-		task.wait()
-		refreshPlayerList()
+connect(Players.PlayerRemoving, function(target)
+	if State.SelectedPlayer == target then
+		selectPlayer(nil)
 	end
-)
+
+	task.wait()
+	refreshPlayerList()
+end)
 
 refreshPlayerList()
 
@@ -2667,6 +2112,8 @@ refreshPlayerList()
 
 local function stopSpectating()
 	State.Spectating = false
+
+	local camera = workspace.CurrentCamera
 
 	if camera then
 		camera.CameraType = Enum.CameraType.Custom
@@ -2686,87 +2133,68 @@ local function stopSpectating()
 	spectateButton.Text = "SPECTATE"
 end
 
-connect(
-	spectateButton.MouseButton1Click,
-	function()
-		local target = State.SelectedPlayer
+connect(spectateButton.MouseButton1Click, function()
+	local target = State.SelectedPlayer
 
-		if not target then
-			selectedStatus.Text =
-				"No player selected."
-			return
-		end
-
-		if target == player then
-			selectedStatus.Text =
-				"You are already viewing yourself."
-			return
-		end
-
-		local character = target.Character
-
-		if not character then
-			selectedStatus.Text =
-				"That player's character is unavailable."
-			return
-		end
-
-		local humanoid =
-			character:FindFirstChildOfClass("Humanoid")
-
-		if not humanoid then
-			selectedStatus.Text =
-				"That player's humanoid is unavailable."
-			return
-		end
-
-		State.Spectating = true
-
-		camera.CameraType = Enum.CameraType.Custom
-		camera.CameraSubject = humanoid
-
-		spectateButton.Text = "SPECTATING"
-
-		playSound(clickSound)
+	if not target then
+		selectedStatus.Text = "No player selected."
+		return
 	end
-)
 
-connect(
-	stopSpectateButton.MouseButton1Click,
-	function()
-		stopSpectating()
-		playSound(clickSound)
+	if target == player then
+		selectedStatus.Text = "You are already viewing yourself."
+		return
 	end
-)
+
+	local character = target.Character
+
+	if not character then
+		selectedStatus.Text = "Character unavailable."
+		return
+	end
+
+	local humanoid =
+		character:FindFirstChildOfClass("Humanoid")
+
+	if not humanoid then
+		selectedStatus.Text = "Humanoid unavailable."
+		return
+	end
+
+	local camera = workspace.CurrentCamera
+
+	State.Spectating = true
+
+	camera.CameraType = Enum.CameraType.Custom
+	camera.CameraSubject = humanoid
+
+	spectateButton.Text = "SPECTATING"
+
+	playSound(clickSound)
+end)
+
+connect(stopSpectateButton.MouseButton1Click, function()
+	stopSpectating()
+	playSound(clickSound)
+end)
 
 --============================================================
--- NAVIGATION
+-- NAVIGATION FUNCTIONS
 --============================================================
 
 local function updateNavButtons()
 	for name, data in pairs(navButtons) do
 		local selected = State.CurrentTab == name
 
-		quickTween(
-			data.Button,
-			0.15,
-			{
-				BackgroundColor3 =
-					selected
-					and PANEL3
-					or DARK
-			}
-		)
+		quickTween(data.Button, 0.15, {
+			BackgroundColor3 = selected and PANEL3 or DARK
+		})
 
 		data.Icon.TextColor3 =
-			selected
-			and State.AccentColor
-			or LIGHTGREY
+			selected and State.AccentColor or LIGHTGREY
 
 		data.Text.TextColor3 =
-			selected
-			and WHITE
-			or LIGHTGREY
+			selected and WHITE or LIGHTGREY
 	end
 end
 
@@ -2782,17 +2210,19 @@ local function openNavPage(name)
 	end
 
 	State.CurrentTab = name
-
 	updateNavButtons()
 
 	if name == "Hub" then
+
 		hideNavPages()
+
 		navPages.Visible = false
 
 		hub.Visible = true
 		hubShadow.Visible = true
 
 	elseif name == "Console" then
+
 		hideNavPages()
 
 		consolePage.Visible = true
@@ -2802,6 +2232,7 @@ local function openNavPage(name)
 		hubShadow.Visible = false
 
 	elseif name == "Settings" then
+
 		hideNavPages()
 
 		appearancePage.Visible = true
@@ -2811,6 +2242,7 @@ local function openNavPage(name)
 		hubShadow.Visible = false
 
 	elseif name == "Players" then
+
 		hideNavPages()
 
 		playersPage.Visible = true
@@ -2844,7 +2276,7 @@ connect(navPlayers.MouseButton1Click, function()
 end)
 
 --============================================================
--- BOTTOM RIGHT OPEN BUTTON
+-- OPEN BUTTON
 --============================================================
 
 local openButton = Instance.new("TextButton")
@@ -2865,32 +2297,21 @@ openButton.ZIndex = 450
 openButton.Parent = gui
 
 corner(openButton, 999)
-stroke(openButton, BORDER, 1, 0)
-
-staticGradient(openButton)
+stroke(openButton, BORDER)
+gradient(openButton)
 
 connect(openButton.MouseEnter, function()
-	quickTween(
-		openButton,
-		0.15,
-		{
-			Size = UDim2.fromOffset(58, 58),
-			BackgroundColor3 = HOVER
-		}
-	)
+	quickTween(openButton, 0.15, {
+		Size = UDim2.fromOffset(58, 58)
+	})
 
 	playSound(hoverSound)
 end)
 
 connect(openButton.MouseLeave, function()
-	quickTween(
-		openButton,
-		0.15,
-		{
-			Size = UDim2.fromOffset(52, 52),
-			BackgroundColor3 = PANEL
-		}
-	)
+	quickTween(openButton, 0.15, {
+		Size = UDim2.fromOffset(52, 52)
+	})
 end)
 
 connect(openButton.MouseButton1Click, function()
@@ -2914,25 +2335,20 @@ connect(minButton.MouseButton1Click, function()
 	playSound(clickSound)
 
 	if minimized then
+
 		minimized = false
 
-		quickTween(
-			hub,
-			0.25,
-			{
-				Size = normalSize
-			}
-		)
+		quickTween(hub, 0.25, {
+			Size = normalSize
+		})
+
 	else
+
 		minimized = true
 
-		quickTween(
-			hub,
-			0.25,
-			{
-				Size = UDim2.fromOffset(760, 68)
-			}
-		)
+		quickTween(hub, 0.25, {
+			Size = UDim2.fromOffset(760, 68)
+		})
 	end
 end)
 
@@ -2940,45 +2356,32 @@ connect(maxButton.MouseButton1Click, function()
 	playSound(clickSound)
 
 	if maximized then
+
 		maximized = false
 
-		quickTween(
-			hub,
-			0.25,
-			{
-				Size = normalSize,
-				Position = normalPosition
-			}
-		)
+		quickTween(hub, 0.25, {
+			Size = normalSize,
+			Position = normalPosition
+		})
 
-		quickTween(
-			hubShadow,
-			0.25,
-			{
-				Size = UDim2.fromOffset(775, 485),
-				Position = normalPosition
-			}
-		)
+		quickTween(hubShadow, 0.25, {
+			Size = UDim2.fromOffset(775, 485),
+			Position = normalPosition
+		})
+
 	else
+
 		maximized = true
 
-		quickTween(
-			hub,
-			0.25,
-			{
-				Size = UDim2.fromScale(0.88, 0.82),
-				Position = UDim2.fromScale(0.5, 0.5)
-			}
-		)
+		quickTween(hub, 0.25, {
+			Size = UDim2.fromScale(0.88, 0.82),
+			Position = UDim2.fromScale(0.5, 0.5)
+		})
 
-		quickTween(
-			hubShadow,
-			0.25,
-			{
-				Size = UDim2.fromScale(0.89, 0.83),
-				Position = UDim2.fromScale(0.5, 0.5)
-			}
-		)
+		quickTween(hubShadow, 0.25, {
+			Size = UDim2.fromScale(0.89, 0.83),
+			Position = UDim2.fromScale(0.5, 0.5)
+		})
 	end
 end)
 
@@ -2999,49 +2402,40 @@ local dragging = false
 local dragStart
 local startPos
 
-connect(
-	topBar.InputBegan,
-	function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
-			dragStart = input.Position
-			startPos = hub.Position
-		end
+connect(topBar.InputBegan, function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = hub.Position
 	end
-)
+end)
 
-connect(
-	topBar.InputEnded,
-	function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = false
-		end
+connect(topBar.InputEnded, function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
 	end
-)
+end)
 
-connect(
-	UserInputService.InputChanged,
-	function(input)
-		if not dragging then
-			return
-		end
-
-		if input.UserInputType ~= Enum.UserInputType.MouseMovement then
-			return
-		end
-
-		local delta = input.Position - dragStart
-
-		hub.Position = UDim2.new(
-			startPos.X.Scale,
-			startPos.X.Offset + delta.X,
-			startPos.Y.Scale,
-			startPos.Y.Offset + delta.Y
-		)
-
-		hubShadow.Position = hub.Position
+connect(UserInputService.InputChanged, function(input)
+	if not dragging then
+		return
 	end
-)
+
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement then
+		return
+	end
+
+	local delta = input.Position - dragStart
+
+	hub.Position = UDim2.new(
+		startPos.X.Scale,
+		startPos.X.Offset + delta.X,
+		startPos.Y.Scale,
+		startPos.Y.Offset + delta.Y
+	)
+
+	hubShadow.Position = hub.Position
+end)
 
 --============================================================
 -- REVEAL SEQUENCE
@@ -3051,17 +2445,15 @@ local function resetRevealBubbles()
 	for _, bubble in ipairs(revealBubbles) do
 		local size = math.random(6, 48)
 
-		bubble.Size =
-			UDim2.fromOffset(size, size)
+		bubble.Size = UDim2.fromOffset(size, size)
 
 		bubble.BackgroundTransparency =
 			math.random(92, 98) / 100
 
-		bubble.Position =
-			UDim2.fromScale(
-				math.random(-10, 110) / 100,
-				1.02 + math.random(-10, 120) / 100
-			)
+		bubble.Position = UDim2.fromScale(
+			math.random(-10, 110) / 100,
+			1.02 + math.random(-10, 120) / 100
+		)
 	end
 end
 
@@ -3081,13 +2473,11 @@ local function runRevealSequence()
 	revealLogo.Size =
 		UDim2.fromOffset(220, 220)
 
-	-- Initial pop
-	task.delay(0.05, function()
-		playBubbleSound()
-	end)
+	playBubbleSound()
 
-	-- Large bubble wave
+	-- Bubble wave
 	for i, bubble in ipairs(revealBubbles) do
+
 		local delayTime =
 			math.random(0, 140) / 100
 
@@ -3095,23 +2485,19 @@ local function runRevealSequence()
 			math.random(100, 240) / 100
 
 		task.delay(delayTime, function()
-			if not bubble.Parent or State.Unloaded then
+
+			if State.Unloaded or not bubble.Parent then
 				return
 			end
 
-			if i % 2 == 0 then
+			-- Don't spam the SFX for every single bubble.
+			if i % 3 == 0 then
 				playBubbleSound()
 			end
 
-			local currentPosition =
-				bubble.Position
-
 			local targetX =
-				currentPosition.X.Scale
+				bubble.Position.X.Scale
 				+ math.random(-18, 18) / 100
-
-			local targetY =
-				-math.random(5, 35) / 100
 
 			tween(
 				bubble,
@@ -3123,7 +2509,7 @@ local function runRevealSequence()
 				{
 					Position = UDim2.fromScale(
 						targetX,
-						targetY
+						-math.random(5, 35) / 100
 					),
 
 					BackgroundTransparency = 1
@@ -3134,7 +2520,6 @@ local function runRevealSequence()
 
 	task.wait(0.35)
 
-	-- Main logo rise
 	local logoRise = tween(
 		revealLogo,
 		TweenInfo.new(
@@ -3143,27 +2528,27 @@ local function runRevealSequence()
 			Enum.EasingDirection.Out
 		),
 		{
-			Position =
-				UDim2.new(
-					0.5,
-					-110,
-					0.5,
-					-110
-				)
+			Position = UDim2.new(
+				0.5,
+				-110,
+				0.5,
+				-110
+			)
 		}
 	)
 
-	task.wait(0.18)
+	task.wait(0.2)
 
 	playBubbleSound()
 
-	logoRise.Completed:Wait()
+	if logoRise then
+		logoRise.Completed:Wait()
+	end
 
 	task.wait(0.15)
 
 	playBubbleSound()
 
-	-- Expansion
 	local expandTween = tween(
 		revealLogo,
 		TweenInfo.new(
@@ -3172,19 +2557,17 @@ local function runRevealSequence()
 			Enum.EasingDirection.InOut
 		),
 		{
-			Position =
-				UDim2.new(
-					0.5,
-					-500,
-					0.5,
-					-500
-				),
+			Position = UDim2.new(
+				0.5,
+				-500,
+				0.5,
+				-500
+			),
 
-			Size =
-				UDim2.fromOffset(
-					1000,
-					1000
-				)
+			Size = UDim2.fromOffset(
+				1000,
+				1000
+			)
 		}
 	)
 
@@ -3200,18 +2583,16 @@ local function runRevealSequence()
 		}
 	)
 
-	expandTween.Completed:Wait()
+	if expandTween then
+		expandTween.Completed:Wait()
+	end
 
 	revealOverlay.Visible = false
 
 	hubShadow.Visible = true
 	hub.Visible = true
 
-	hub.Size =
-		UDim2.fromOffset(
-			680,
-			420
-		)
+	hub.Size = UDim2.fromOffset(680, 420)
 
 	tween(
 		hub,
@@ -3233,15 +2614,9 @@ local function runRevealSequence()
 			Enum.EasingDirection.Out
 		),
 		{
-			Size =
-				UDim2.fromOffset(
-					775,
-					485
-				)
+			Size = UDim2.fromOffset(775, 485)
 		}
 	)
-
-	State.HubVisible = true
 
 	playSound(clickSound)
 end
@@ -3258,116 +2633,86 @@ local function runLoadingSequence()
 	loadingOverlay.Visible = true
 	loadingOverlay.BackgroundTransparency = 0
 
-	barFill.Size =
-		UDim2.new(
-			0,
-			0,
-			1,
-			0
-		)
-
+	barFill.Size = UDim2.new(0, 0, 1, 0)
 	percent.Text = "0%"
 
 	gearHolder.Rotation = 0
 
 	local loadingTime = 5.5
 	local startTime = os.clock()
-
-	local lastBubblePercent = -1
+	local lastStep = -1
 
 	local progressConnection
 
-	progressConnection =
-		RunService.RenderStepped:Connect(
-			function()
-				if not loadingOverlay.Visible
-					or State.Unloaded then
+	progressConnection = RunService.RenderStepped:Connect(function()
 
-					if progressConnection then
-						progressConnection:Disconnect()
-					end
+		if State.Unloaded or not loadingOverlay.Visible then
 
-					return
-				end
-
-				local elapsed =
-					os.clock()
-					- startTime
-
-				local alpha =
-					math.clamp(
-						elapsed / loadingTime,
-						0,
-						1
-					)
-
-				local currentPercent =
-					math.floor(
-						alpha * 100
-					)
-
-				barFill.Size =
-					UDim2.new(
-						alpha,
-						0,
-						1,
-						0
-					)
-
-				percent.Text =
-					tostring(
-						currentPercent
-					) .. "%"
-
-				-- Bubble SFX every 4%
-				local bubbleStep =
-					math.floor(
-						currentPercent / 4
-					)
-
-				if bubbleStep > lastBubblePercent then
-					lastBubblePercent =
-						bubbleStep
-
-					if currentPercent > 0
-						and currentPercent < 100 then
-
-						playBubbleSound()
-
-						-- Occasional double pop
-						if bubbleStep % 5 == 0 then
-							task.delay(
-								0.07,
-								playBubbleSound
-							)
-						end
-					end
-				end
-
-				if alpha >= 1 then
-					progressConnection:Disconnect()
-				end
+			if progressConnection then
+				progressConnection:Disconnect()
 			end
+
+			return
+		end
+
+		local elapsed = os.clock() - startTime
+
+		local alpha = math.clamp(
+			elapsed / loadingTime,
+			0,
+			1
 		)
 
-	-- Rotating loading indicator
+		local currentPercent =
+			math.floor(alpha * 100)
+
+		barFill.Size =
+			UDim2.new(alpha, 0, 1, 0)
+
+		percent.Text =
+			tostring(currentPercent) .. "%"
+
+		-- SFX every 4%
+		local step =
+			math.floor(currentPercent / 4)
+
+		if step > lastStep then
+
+			lastStep = step
+
+			if currentPercent > 0
+				and currentPercent < 100 then
+
+				playBubbleSound()
+
+				if step % 5 == 0 then
+					task.delay(0.07, playBubbleSound)
+				end
+			end
+		end
+
+		if alpha >= 1 then
+			progressConnection:Disconnect()
+		end
+	end)
+
+	-- Gear animation
 	task.spawn(function()
+
 		while loadingOverlay.Visible
 			and not State.Unloaded do
 
-			local rotationTween =
-				tween(
-					gearHolder,
-					TweenInfo.new(
-						1.25,
-						Enum.EasingStyle.Linear
-					),
-					{
-						Rotation =
-							gearHolder.Rotation
-							+ 360
-					}
-				)
+			local rotationTween = tween(
+				gearHolder,
+				TweenInfo.new(
+					1.25,
+					Enum.EasingStyle.Linear
+				),
+				{
+					Rotation =
+						gearHolder.Rotation + 360
+				}
+			)
 
 			if rotationTween then
 				rotationTween.Completed:Wait()
@@ -3377,9 +2722,7 @@ local function runLoadingSequence()
 		end
 	end)
 
-	task.wait(
-		loadingTime + 0.2
-	)
+	task.wait(loadingTime + 0.2)
 
 	if State.Unloaded then
 		return
@@ -3398,126 +2741,156 @@ local function runLoadingSequence()
 end
 
 --============================================================
--- TAB SWITCHING
+-- KEY SYSTEM - FIXED
 --============================================================
 
-local function selectHubTab(tabName)
-	for name, page in pairs(pages) do
-		page.Visible =
-			name == tabName
-	end
+local unlocked = false
 
-	for name, data in pairs(tabs) do
-		local selected =
-			name == tabName
+local function shakeKeyCard()
+	local original = keyCard.Position
 
-		data.Button:SetAttribute(
-			"Selected",
-			selected
-		)
+	for i = 1, 6 do
 
-		data.Indicator.Visible =
-			selected
+		local direction =
+			i % 2 == 0 and 8 or -8
 
-		quickTween(
-			data.Button,
-			0.15,
+		local t = tween(
+			keyCard,
+			TweenInfo.new(0.035),
 			{
-				BackgroundColor3 =
-					selected
-					and PANEL3
-					or DARK,
-
-				TextColor3 =
-					selected
-					and WHITE
-					or LIGHTGREY
+				Position =
+					original
+					+ UDim2.fromOffset(
+						direction,
+						0
+					)
 			}
 		)
 
-		data.Icon.TextColor3 =
-			selected
-			and State.AccentColor
-			or LIGHTGREY
-
-		data.Text.TextColor3 =
-			selected
-			and WHITE
-			or LIGHTGREY
-	end
-end
-
-for name, data in pairs(tabs) do
-	connect(
-		data.Button.MouseButton1Click,
-		function()
-			selectHubTab(name)
-			playSound(clickSound)
+		if t then
+			t.Completed:Wait()
 		end
+	end
+
+	tween(
+		keyCard,
+		TweenInfo.new(0.08),
+		{
+			Position = original
+		}
 	)
 end
 
---============================================================
--- COLOR UPDATES
---============================================================
+local function attemptUnlock()
+	-- Prevent double activation.
+	if unlocked or State.Unloaded then
+		return
+	end
 
-local function updateAccent()
-	accentColorButton.BackgroundColor3 =
-		State.AccentColor
+	playSound(clickSound)
 
-	previewAccent.BackgroundColor3 =
-		State.AccentColor
+	-- IMPORTANT:
+	-- Trim whitespace + make the key lowercase.
+	local enteredKey = tostring(keyInput.Text or "")
 
-	previewButton.BackgroundColor3 =
-		State.AccentColor
+	enteredKey = enteredKey:gsub("^%s+", "")
+	enteredKey = enteredKey:gsub("%s+$", "")
+	enteredKey = string.lower(enteredKey)
 
-	transparencyFill.BackgroundColor3 =
-		State.AccentColor
+	print("[BubblesHook] Key entered:", enteredKey)
 
-	openButton.BackgroundColor3 =
-		State.BaseColor
+	if enteredKey == "bubbles" then
 
-	for _, data in pairs(tabs) do
-		data.Indicator.BackgroundColor3 =
-			State.AccentColor
+		-- SUCCESS
+		unlocked = true
+		State.Unlocked = true
 
-		if data.Button:GetAttribute("Selected") then
-			data.Icon.TextColor3 =
-				State.AccentColor
+		statusLabel.Text = "ACCESS GRANTED"
+		statusLabel.TextColor3 = State.AccentColor
+
+		keyInput.TextEditable = false
+		unlockButton.Active = false
+
+		task.wait(0.25)
+
+		-- Fade overlay
+		tween(
+			keyOverlay,
+			TweenInfo.new(
+				0.5,
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.Out
+			),
+			{
+				BackgroundTransparency = 1
+			}
+		)
+
+		-- Move card down slightly
+		tween(
+			keyCard,
+			TweenInfo.new(
+				0.45,
+				Enum.EasingStyle.Quad,
+				Enum.EasingDirection.In
+			),
+			{
+				Position = UDim2.fromScale(
+					0.5,
+					0.54
+				)
+			}
+		)
+
+		task.wait(0.5)
+
+		if State.Unloaded then
+			return
+		end
+
+		keyOverlay.Visible = false
+
+		runLoadingSequence()
+
+	else
+
+		-- FAILED
+		statusLabel.Text = "INVALID KEY"
+		statusLabel.TextColor3 =
+			Color3.fromRGB(
+				210,
+				150,
+				150
+			)
+
+		playBubbleSound()
+
+		shakeKeyCard()
+
+		task.wait(0.4)
+
+		if not State.Unloaded and not unlocked then
+			statusLabel.Text = "WAITING FOR KEY"
+			statusLabel.TextColor3 = GREY
 		end
 	end
 end
 
+-- Mouse/touch button
 connect(
-	accentColorButton.MouseButton1Click,
-	function()
-		local color =
-			State.AccentColor
+	unlockButton.Activated,
+	attemptUnlock
+)
 
-		-- cycle through a few useful accents
-		local r, g, b =
-			color.R,
-			color.G,
-			color.B
+-- Enter key
+connect(
+	keyInput.FocusLost,
+	function(enterPressed)
 
-		if r > 0.8 and g > 0.8 and b > 0.8 then
-			State.AccentColor =
-				Color3.fromRGB(
-					100,
-					170,
-					255
-				)
-		else
-			State.AccentColor =
-				Color3.fromRGB(
-					235,
-					238,
-					245
-				)
+		if enterPressed and not unlocked then
+			attemptUnlock()
 		end
 
-		updateAccent()
-		playSound(clickSound)
 	end
 )
 
@@ -3532,9 +2905,7 @@ local function unload()
 
 	State.Unloaded = true
 
-	if State.Spectating then
-		stopSpectating()
-	end
+	stopSpectating()
 
 	disconnectAll()
 
@@ -3544,42 +2915,26 @@ local function unload()
 		end
 	end
 
-	destroyDynamic()
+	local fade = Instance.new("Frame")
 
-	task.spawn(function()
-		if gui and gui.Parent then
-			local fade =
-				Instance.new("Frame")
+	fade.BackgroundColor3 = BLACK
+	fade.BackgroundTransparency = 1
+	fade.Size = UDim2.fromScale(1, 1)
+	fade.ZIndex = 9999
+	fade.Parent = gui
 
-			fade.BackgroundColor3 =
-				BLACK
+	tween(
+		fade,
+		TweenInfo.new(
+			0.3,
+			Enum.EasingStyle.Quad
+		),
+		{
+			BackgroundTransparency = 0
+		}
+	)
 
-			fade.BackgroundTransparency =
-				1
-
-			fade.Size =
-				UDim2.fromScale(
-					1,
-					1
-				)
-
-			fade.ZIndex = 9999
-			fade.Parent = gui
-
-			tween(
-				fade,
-				TweenInfo.new(
-					0.3,
-					Enum.EasingStyle.Quad
-				),
-				{
-					BackgroundTransparency =
-						0
-				}
-			)
-
-			task.wait(0.32)
-		end
+	task.delay(0.32, function()
 
 		if gui and gui.Parent then
 			gui:Destroy()
@@ -3588,11 +2943,12 @@ local function unload()
 		if sfxFolder and sfxFolder.Parent then
 			sfxFolder:Destroy()
 		end
+
 	end)
 end
 
 connect(
-	navUnload.MouseButton1Click,
+	navUnload.Activated,
 	function()
 		playSound(clickSound)
 		unload()
@@ -3600,166 +2956,50 @@ connect(
 )
 
 --============================================================
--- KEY CHECK
---============================================================
-
-local unlocked = false
-
-local function shakeKeyCard()
-	local original =
-		keyCard.Position
-
-	for i = 1, 6 do
-		local direction =
-			i % 2 == 0
-			and 8
-			or -8
-
-		local t =
-			tween(
-				keyCard,
-				TweenInfo.new(
-					0.035
-				),
-				{
-					Position =
-						original
-						+ UDim2.fromOffset(
-							direction,
-							0
-						)
-				}
-			)
-
-		if t then
-			t.Completed:Wait()
-		end
-	end
-
-	tween(
-		keyCard,
-		TweenInfo.new(
-			0.08
-		),
-		{
-			Position =
-				original
-		}
-	)
-end
-
-local function attemptUnlock()
-	if unlocked or State.Unloaded then
-		return
-	end
-
-	playSound(clickSound)
-
-	if keyInput.Text == "bubbles" then
-		unlocked = true
-		State.Unlocked = true
-
-		statusLabel.Text =
-			"ACCESS GRANTED"
-
-		statusLabel.TextColor3 =
-			State.AccentColor
-
-		task.wait(0.25)
-
-		tween(
-			keyOverlay,
-			TweenInfo.new(
-				0.5,
-				Enum.EasingStyle.Quad,
-				Enum.EasingDirection.Out
-			),
-			{
-				BackgroundTransparency =
-					1
-			}
-		)
-
-		tween(
-			keyCard,
-			TweenInfo.new(
-				0.45,
-				Enum.EasingStyle.Quad,
-				Enum.EasingDirection.In
-			),
-			{
-				Position =
-					UDim2.fromScale(
-						0.5,
-						0.54
-					)
-			}
-		)
-
-		task.wait(0.5)
-
-		keyOverlay.Visible = false
-
-		runLoadingSequence()
-	else
-		statusLabel.Text =
-			"INVALID KEY"
-
-		statusLabel.TextColor3 =
-			Color3.fromRGB(
-				210,
-				150,
-				150
-			)
-
-		playBubbleSound()
-
-		shakeKeyCard()
-
-		task.wait(0.4)
-
-		statusLabel.Text =
-			"WAITING FOR KEY"
-
-		statusLabel.TextColor3 =
-			GREY
-	end
-end
-
-connect(
-	unlockButton.MouseButton1Click,
-	attemptUnlock
-)
-
-connect(
-	keyInput.FocusLost,
-	function(enterPressed)
-		if enterPressed then
-			attemptUnlock()
-		end
-	end
-)
-
---============================================================
 -- STARTUP
 --============================================================
 
-selectHubTab("Home")
+-- Home tab selected initially
+for name, page in pairs(pages) do
+	page.Visible = name == "Home"
+end
 
-openNavPage("Hub")
+for name, data in pairs(tabs) do
 
+	local selected = name == "Home"
+
+	data.Button:SetAttribute(
+		"Selected",
+		selected
+	)
+
+	data.Indicator.Visible = selected
+
+	data.Button.BackgroundColor3 =
+		selected and PANEL3 or DARK
+
+	data.Icon.TextColor3 =
+		selected and State.AccentColor or LIGHTGREY
+
+	data.Text.TextColor3 =
+		selected and WHITE or LIGHTGREY
+end
+
+State.CurrentTab = "Hub"
+
+updateNavButtons()
+
+navigation.Visible = false
 hub.Visible = false
 hubShadow.Visible = false
-
 openButton.Visible = false
 
 keyOverlay.Visible = true
 loadingOverlay.Visible = false
 revealOverlay.Visible = false
 
-State.CurrentTab = "Hub"
-
-updateNavButtons()
-updateAccent()
-
-print("BubblesHook V2 loaded.")
+print("====================================")
+print("BubblesHook V2 started")
+print("Key system ready")
+print("Expected key: bubbles")
+print("====================================")
