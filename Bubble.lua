@@ -416,7 +416,6 @@ statusLabel.Size = UDim2.new(1, 0, 0, 20)
 statusLabel.Position = UDim2.fromOffset(0, 239)
 statusLabel.ZIndex = 102
 
--- Button hover
 connect(unlockButton.MouseEnter, function()
 	quickTween(unlockButton, 0.15, {
 		BackgroundColor3 = SILVER
@@ -555,7 +554,6 @@ revealOverlay.Parent = gui
 
 local revealBubbles = {}
 
--- 180 bubbles
 for i = 1, 180 do
 	local bubble = Instance.new("Frame")
 
@@ -1755,9 +1753,6 @@ appearanceTitle.Position = UDim2.fromOffset(15, 13)
 appearanceTitle.Size = UDim2.new(1, -30, 0, 20)
 appearanceTitle.TextXAlignment = Enum.TextXAlignment.Left
 
--- Use a generated HSV wheel instead of depending on an external
--- ImageButton asset.
-
 local colorWheel = Instance.new("Frame")
 
 colorWheel.BackgroundColor3 = PANEL3
@@ -2284,10 +2279,7 @@ local openButton = Instance.new("TextButton")
 openButton.Name = "OpenButton"
 openButton.AnchorPoint = Vector2.new(1, 1)
 openButton.BackgroundColor3 = PANEL
-openButton.Text = "B"
-openButton.TextColor3 = WHITE
-openButton.TextSize = 15
-openButton.Font = Enum.Font.GothamBold
+openButton.Text = ""
 openButton.Size = UDim2.fromOffset(52, 52)
 openButton.Position = UDim2.new(1, -22, 1, -22)
 openButton.BorderSizePixel = 0
@@ -2300,9 +2292,32 @@ corner(openButton, 999)
 stroke(openButton, BORDER)
 gradient(openButton)
 
+--============================================================
+-- OPEN BUTTON LOGO
+--============================================================
+
+local openLogo = createLogo(
+	openButton,
+	UDim2.fromOffset(9, 9),
+	UDim2.fromOffset(34, 34)
+)
+
+openLogo.ZIndex = 451
+
+-- Make sure every bubble/highlight is above the button.
+for _, child in ipairs(openLogo:GetDescendants()) do
+	if child:IsA("GuiObject") then
+		child.ZIndex = 451
+	end
+end
+
 connect(openButton.MouseEnter, function()
 	quickTween(openButton, 0.15, {
 		Size = UDim2.fromOffset(58, 58)
+	})
+
+	quickTween(openLogo, 0.15, {
+		Position = UDim2.fromOffset(12, 12)
 	})
 
 	playSound(hoverSound)
@@ -2311,6 +2326,10 @@ end)
 connect(openButton.MouseLeave, function()
 	quickTween(openButton, 0.15, {
 		Size = UDim2.fromOffset(52, 52)
+	})
+
+	quickTween(openLogo, 0.15, {
+		Position = UDim2.fromOffset(9, 9)
 	})
 end)
 
@@ -2475,7 +2494,6 @@ local function runRevealSequence()
 
 	playBubbleSound()
 
-	-- Bubble wave
 	for i, bubble in ipairs(revealBubbles) do
 
 		local delayTime =
@@ -2490,7 +2508,6 @@ local function runRevealSequence()
 				return
 			end
 
-			-- Don't spam the SFX for every single bubble.
 			if i % 3 == 0 then
 				playBubbleSound()
 			end
@@ -2672,7 +2689,6 @@ local function runLoadingSequence()
 		percent.Text =
 			tostring(currentPercent) .. "%"
 
-		-- SFX every 4%
 		local step =
 			math.floor(currentPercent / 4)
 
@@ -2696,7 +2712,6 @@ local function runLoadingSequence()
 		end
 	end)
 
-	-- Gear animation
 	task.spawn(function()
 
 		while loadingOverlay.Visible
@@ -2782,15 +2797,12 @@ local function shakeKeyCard()
 end
 
 local function attemptUnlock()
-	-- Prevent double activation.
 	if unlocked or State.Unloaded then
 		return
 	end
 
 	playSound(clickSound)
 
-	-- IMPORTANT:
-	-- Trim whitespace + make the key lowercase.
 	local enteredKey = tostring(keyInput.Text or "")
 
 	enteredKey = enteredKey:gsub("^%s+", "")
@@ -2801,7 +2813,6 @@ local function attemptUnlock()
 
 	if enteredKey == "bubbles" then
 
-		-- SUCCESS
 		unlocked = true
 		State.Unlocked = true
 
@@ -2813,7 +2824,6 @@ local function attemptUnlock()
 
 		task.wait(0.25)
 
-		-- Fade overlay
 		tween(
 			keyOverlay,
 			TweenInfo.new(
@@ -2826,7 +2836,6 @@ local function attemptUnlock()
 			}
 		)
 
-		-- Move card down slightly
 		tween(
 			keyCard,
 			TweenInfo.new(
@@ -2854,7 +2863,6 @@ local function attemptUnlock()
 
 	else
 
-		-- FAILED
 		statusLabel.Text = "INVALID KEY"
 		statusLabel.TextColor3 =
 			Color3.fromRGB(
@@ -2876,13 +2884,11 @@ local function attemptUnlock()
 	end
 end
 
--- Mouse/touch button
 connect(
 	unlockButton.Activated,
 	attemptUnlock
 )
 
--- Enter key
 connect(
 	keyInput.FocusLost,
 	function(enterPressed)
@@ -2959,7 +2965,6 @@ connect(
 -- STARTUP
 --============================================================
 
--- Home tab selected initially
 for name, page in pairs(pages) do
 	page.Visible = name == "Home"
 end
